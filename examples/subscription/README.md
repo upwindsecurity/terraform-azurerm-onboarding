@@ -2,14 +2,14 @@
 
 Terraform module for connecting Microsoft Azure subscription/s to Upwind Security.
 
-# Usage
+## Usage
 
 To run this example you need to execute:
 
 ```bash
-$ terraform init
-$ terraform plan
-$ terraform apply
+terraform init
+terraform plan
+terraform apply
 ```
 
 Run `terraform destroy` when you don't need these resources.
@@ -34,7 +34,7 @@ No providers.
 
 | Name | Source | Version |
 |------|--------|---------|
-| <a name="module_upwind_cloud_credentials"></a> [upwind\_cloud\_credentials](#module\_upwind\_cloud\_credentials) | https://get.upwind.io/terraform/modules/azure-cloud-credentials/azure-cloud-credentials-0.4.0.tar.gz | n/a |
+| <a name="module_upwind_cloud_credentials"></a> [upwind\_cloud\_credentials](#module\_upwind\_cloud\_credentials) | ../../modules/subscription | n/a |
 
 ## Resources
 
