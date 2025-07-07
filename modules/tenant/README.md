@@ -1,6 +1,6 @@
-# azure-cloud-credentials
+# Microsoft Azure Tenant Onboarding Module
 
-Terraform module for connecting Microsoft Azure subscription/s to Upwind Security.
+This Terraform module handles the onboarding of Microsoft Azure tenants to the Upwind platform, enabling users to seamlessly connect their entire tenant for comprehensive monitoring and security analysis.
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
@@ -19,12 +19,12 @@ Terraform module for connecting Microsoft Azure subscription/s to Upwind Securit
 
 | Name | Version |
 |------|---------|
-| <a name="provider_azuread"></a> [azuread](#provider\_azuread) | >= 2.53 |
-| <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | >= 3.111 |
-| <a name="provider_http"></a> [http](#provider\_http) | >= 3.4 |
-| <a name="provider_null"></a> [null](#provider\_null) | >= 3 |
-| <a name="provider_random"></a> [random](#provider\_random) | >= 3.5 |
-| <a name="provider_time"></a> [time](#provider\_time) | >= 0.8 |
+| <a name="provider_azuread"></a> [azuread](#provider\_azuread) | 3.4.0 |
+| <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 4.35.0 |
+| <a name="provider_http"></a> [http](#provider\_http) | 3.5.0 |
+| <a name="provider_null"></a> [null](#provider\_null) | 3.2.4 |
+| <a name="provider_random"></a> [random](#provider\_random) | 3.7.2 |
+| <a name="provider_time"></a> [time](#provider\_time) | 0.13.1 |
 
 ## Modules
 

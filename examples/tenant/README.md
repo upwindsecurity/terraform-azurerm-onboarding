@@ -1,6 +1,6 @@
-# Azure Tenant Onboarding Example
+# Microsoft Azure Tenant Onboarding Example
 
-Terraform module for onboarding a Microsoft Azure tenant to Upwind Security.
+This example demonstrates how to use the Microsoft Azure Tenant Onboarding Module to connect a Microsoft Azure tenant to the Upwind platform for comprehensive monitoring and security analysis.
 
 ## Usage
 

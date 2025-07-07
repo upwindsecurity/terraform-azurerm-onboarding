@@ -1,6 +1,6 @@
-# azure-cloud-credentials
+# Microsoft Azure Subscription Onboarding Example
 
-Terraform module for connecting Microsoft Azure subscription/s to Upwind Security.
+This example demonstrates how to use the Microsoft Azure Subscription Onboarding Module to connect Microsoft Azure subscriptions to the Upwind platform for comprehensive monitoring and security analysis.
 
 ## Usage
 
