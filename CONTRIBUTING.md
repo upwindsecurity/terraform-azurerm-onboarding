@@ -58,8 +58,7 @@ Please report unacceptable behavior to the project maintainers.
 2. Install pre-commit hooks:
 
    ```bash
-   pre-commit install --config .config/.pre-commit-config.yml
-   pre-commit install --hook-type commit-msg --config .config/.pre-commit-config.yml
+   make pre-commit
    ```
 
 3. Run initial tests:
