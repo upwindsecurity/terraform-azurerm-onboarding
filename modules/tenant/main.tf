@@ -1,21 +1,3 @@
-provider "azurerm" {
-  subscription_id = var.azure_orchestrator_subscription_id
-  # For detailed instructions on configuring the Azure provider, see:
-  # https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs
-  features {
-    resource_group {
-      prevent_deletion_if_contains_resources = false
-    }
-    key_vault {
-      recover_soft_deleted_keys = true
-    }
-  }
-}
-
-provider "azuread" {
-  tenant_id = var.azure_tenant_id
-}
-
 data "azurerm_management_group" "root_tenant_as_management_group" {
   count = var.azure_tenant_id != "" ? 1 : 0
   name  = var.azure_tenant_id

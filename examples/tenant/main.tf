@@ -1,3 +1,21 @@
+provider "azurerm" {
+  subscription_id = var.azure_orchestrator_subscription_id
+  # For detailed instructions on configuring the Azure provider, see:
+  # https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs
+  features {
+    resource_group {
+      prevent_deletion_if_contains_resources = false
+    }
+    key_vault {
+      recover_soft_deleted_keys = true
+    }
+  }
+}
+
+provider "azuread" {
+  tenant_id = var.azure_tenant_id
+}
+
 module "upwind_integration_azure_onboarding" {
   source = "../../modules/tenant"
 
@@ -11,10 +29,10 @@ module "upwind_integration_azure_onboarding" {
   scanner_client_secret = "scanner_client_secret_example" # Cloud Scanner credentials secret
 
   # Azure Organization Info
-  azure_tenant_id = "fd4c2325-d478-4d58-809f-a8b2f9bb07ab" # Azure tenant ID
+  azure_tenant_id = var.azure_tenant_id # Azure tenant ID
 
   # Subscription to act as the orchestrator
-  azure_orchestrator_subscription_id = "a8c59695-475e-43d5-bf79-36e870f628db" # Azure subscription ID for orchestrator
+  azure_orchestrator_subscription_id = var.azure_orchestrator_subscription_id # Azure subscription ID for orchestrator
 
   # Resource suffix
   resource_suffix = "funefgi"

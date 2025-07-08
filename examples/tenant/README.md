@@ -1,6 +1,7 @@
 # Microsoft Azure Tenant Onboarding Example
 
-This example demonstrates how to use the Microsoft Azure Tenant Onboarding Module to connect a Microsoft Azure tenant to the Upwind platform for comprehensive monitoring and security analysis.
+This example demonstrates how to use the Microsoft Azure Tenant Onboarding Module to connect a Microsoft Azure tenant
+to the Upwind platform for comprehensive monitoring and security analysis.
 
 ## Usage
 
@@ -35,7 +36,10 @@ No resources.
 
 ## Inputs
 
-No inputs.
+| Name | Description | Type | Default | Required |
+|------|-------------|------|---------|:--------:|
+| <a name="input_azure_orchestrator_subscription_id"></a> [azure\_orchestrator\_subscription\_id](#input\_azure\_orchestrator\_subscription\_id) | The identifier of the Azure subscription to act as the orchestrator. | `string` | n/a | yes |
+| <a name="input_azure_tenant_id"></a> [azure\_tenant\_id](#input\_azure\_tenant\_id) | The identifier of the Azure tenant to integrate with. | `string` | n/a | yes |
 
 ## Outputs
 
