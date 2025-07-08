@@ -1,6 +1,7 @@
 # Microsoft Azure Subscription Onboarding Example
 
-This example demonstrates how to use the Microsoft Azure Subscription Onboarding Module to connect Microsoft Azure subscriptions to the Upwind platform for comprehensive monitoring and security analysis.
+This example demonstrates how to use the Microsoft Azure Subscription Onboarding Module to connect Microsoft Azure
+subscriptions to the Upwind platform for comprehensive monitoring and security analysis.
 
 ## Usage
 
@@ -44,14 +45,7 @@ No resources.
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_azure_exclude_subscription_ids"></a> [azure\_exclude\_subscription\_ids](#input\_azure\_exclude\_subscription\_ids) | List of subscription IDs to EXCLUDE when granting read access to. This variable is mutually exclusive with `azure_include_subscription_ids`. | `list(string)` | `[]` | no |
-| <a name="input_azure_include_all_subscriptions"></a> [azure\_include\_all\_subscriptions](#input\_azure\_include\_all\_subscriptions) | When set to true, grant read access to ALL subscriptions within the tenant. Overrides `azure_include_subscription_ids`. | `bool` | `false` | no |
-| <a name="input_azure_include_subscription_ids"></a> [azure\_include\_subscription\_ids](#input\_azure\_include\_subscription\_ids) | List of subscription IDs to INCLUDE when granting read access to. If `azure_include_all_subscriptions` is false and this list is left empty, only the current subscription is included. This variable is mutually exclusive with `azure_exclude_subscription_ids`. | `list(string)` | `[]` | no |
-| <a name="input_azure_management_group_ids"></a> [azure\_management\_group\_ids](#input\_azure\_management\_group\_ids) | List of management group IDs to grant read access to. This variable is mutually exclusive with `azure_include_all_subscriptions` and `azure_include_subscription_ids`, and it takes precedence if both sets of variables are provided. | `list(string)` | `[]` | no |
 | <a name="input_create"></a> [create](#input\_create) | Controls whether resources should be created. Affects all resources. | `bool` | `true` | no |
-| <a name="input_upwind_client_id"></a> [upwind\_client\_id](#input\_upwind\_client\_id) | The client ID used for authentication with the Upwind Authorization Service. | `string` | `null` | no |
-| <a name="input_upwind_client_secret"></a> [upwind\_client\_secret](#input\_upwind\_client\_secret) | The client secret for authentication with the Upwind Authorization Service. | `string` | `null` | no |
-| <a name="input_upwind_organization_id"></a> [upwind\_organization\_id](#input\_upwind\_organization\_id) | The identifier of the Upwind organization to integrate with. | `string` | n/a | yes |
 
 ## Outputs
 

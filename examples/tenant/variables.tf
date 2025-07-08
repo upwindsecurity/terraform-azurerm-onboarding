@@ -1,12 +1,7 @@
-# region azure
-variable "azure_tenant_id" {
-  type        = string
-  description = "The identifier of the Azure tenant to integrate with."
-}
+# This file demonstrates variable usage in examples
 
-variable "azure_orchestrator_subscription_id" {
-  type        = string
-  description = "The identifier of the Azure subscription to act as the orchestrator."
+variable "create" {
+  description = "Controls whether resources should be created. Affects all resources."
+  type        = bool
+  default     = true
 }
-
-# endregion azure

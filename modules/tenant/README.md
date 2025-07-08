@@ -1,6 +1,7 @@
 # Microsoft Azure Tenant Onboarding Module
 
-This Terraform module handles the onboarding of Microsoft Azure tenants to the Upwind platform, enabling users to seamlessly connect their entire tenant for comprehensive monitoring and security analysis.
+This Terraform module handles the onboarding of Microsoft Azure tenants to the Upwind platform, enabling users to
+seamlessly connect their entire tenant for comprehensive monitoring and security analysis.
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements

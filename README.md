@@ -12,15 +12,19 @@ Upwind platform, enabling seamless integration for monitoring and security analy
 
 This repository contains the following Terraform modules for Microsoft Azure onboarding:
 
-- [modules/organization/](./modules/organization/) - Management group-level onboarding module for comprehensive monitoring
-  and security analysis across entire Azure management groups
+- [modules/subscription/](./modules/subscription/) - Subscription-level onboarding module for monitoring specific Azure
+  subscriptions with flexible scope configuration
+- [modules/tenant/](./modules/tenant/) - Tenant-level onboarding module for comprehensive monitoring and security
+  analysis across entire Azure tenants and management groups
 
 ## Examples
 
 Complete usage examples are available in the [examples](./examples/) directory:
 
-- [examples/organization/](./examples/organization/) - Advanced management group-level onboarding with multiple subscription
-  scenarios and conditional deployments
+- [examples/subscription/](./examples/subscription/) - Subscription-level onboarding with multiple configuration
+  options for subscription scope selection
+- [examples/tenant/](./examples/tenant/) - Tenant-level onboarding with management group configuration options
+  and CloudScanner deployment automation
 
 ## Contributing
 
