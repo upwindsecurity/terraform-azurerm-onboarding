@@ -58,8 +58,7 @@ Please report unacceptable behavior to the project maintainers.
 2. Install pre-commit hooks:
 
    ```bash
-   pre-commit install
-   pre-commit install --hook-type commit-msg
+   make pre-commit
    ```
 
 3. Run initial tests:
