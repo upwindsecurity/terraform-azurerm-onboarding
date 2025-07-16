@@ -40,13 +40,13 @@ variable "upwind_integration_endpoint" {
 }
 
 variable "upwind_region" {
-  description = "The region where the Upwind components will be deployed."
+  description = "The region where the Upwind components will be deployed. Must be 'us', 'eu' or 'me'"
   type        = string
   default     = "us"
 
   validation {
-    condition     = var.upwind_region == "us" || var.upwind_region == "eu"
-    error_message = "upwind_region must be either 'us' or 'eu'."
+    condition     = var.upwind_region == "us" || var.upwind_region == "eu" || var.upwind_region == "me"
+    error_message = "upwind_region must be either 'us', 'eu' or 'me'."
   }
 }
 
