@@ -11,8 +11,8 @@ locals {
 resource "azurerm_key_vault" "orgwide_key_vault" {
   count                     = local.cloudscanner_enabled ? 1 : 0
   name                      = local.key_vault_name
-  location                  = azurerm_resource_group.orgwide_resource_group.location
-  resource_group_name       = azurerm_resource_group.orgwide_resource_group.name
+  location                  = azurerm_resource_group.orgwide_resource_group[0].location
+  resource_group_name       = azurerm_resource_group.orgwide_resource_group[0].name
   tenant_id                 = data.azurerm_subscription.orchestrator.tenant_id
   sku_name                  = "standard"
   enable_rbac_authorization = true
@@ -45,6 +45,7 @@ resource "azurerm_role_assignment" "kv_secrets_scaler" {
 
 # Add organization-wide secrets to Key Vault
 resource "azurerm_key_vault_secret" "scanner_client_id" {
+  count        = local.cloudscanner_enabled ? 1 : 0
   name         = "upwind-client-id"
   value        = var.scanner_client_id
   key_vault_id = azurerm_key_vault.orgwide_key_vault[0].id
@@ -52,6 +53,7 @@ resource "azurerm_key_vault_secret" "scanner_client_id" {
 }
 
 resource "azurerm_key_vault_secret" "scanner_client_secret" {
+  count        = local.cloudscanner_enabled ? 1 : 0
   name         = "upwind-client-secret"
   value        = var.scanner_client_secret
   key_vault_id = azurerm_key_vault.orgwide_key_vault[0].id

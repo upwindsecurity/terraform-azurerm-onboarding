@@ -19,12 +19,14 @@ variable "upwind_client_secret" {
 variable "scanner_client_id" {
   description = "The client ID used for authentication with the Upwind CloudScanner Service."
   type        = string
+  default     = ""
 }
 
 variable "scanner_client_secret" {
   description = "The client secret for authentication with the Upwind CloudScanner Service."
   type        = string
   sensitive   = true
+  default     = ""
 }
 
 variable "upwind_auth_endpoint" {
