@@ -61,6 +61,7 @@ resource "null_resource" "register_app_service_provider" {
 }
 
 resource "azurerm_resource_group" "orgwide_resource_group" {
+  count    = local.cloudscanner_enabled ? 1 : 0
   name     = "upwind-cs-rg-${var.upwind_organization_id}"
   location = var.azure_cloudscanner_location
 }

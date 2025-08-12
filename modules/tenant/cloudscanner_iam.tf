@@ -50,8 +50,8 @@ resource "azurerm_role_assignment" "deployer" {
 
 resource "azurerm_user_assigned_identity" "worker_user_assigned_identity" {
   count               = local.cloudscanner_enabled ? 1 : 0
-  resource_group_name = azurerm_resource_group.orgwide_resource_group.name
-  location            = azurerm_resource_group.orgwide_resource_group.location
+  resource_group_name = azurerm_resource_group.orgwide_resource_group[0].name
+  location            = azurerm_resource_group.orgwide_resource_group[0].location
   name                = "upwind-cs-vmss-identity-${var.upwind_organization_id}"
 }
 
@@ -108,8 +108,8 @@ resource "azurerm_role_assignment" "storage_reader" {
 
 resource "azurerm_user_assigned_identity" "scaler_user_assigned_identity" {
   count               = local.cloudscanner_enabled ? 1 : 0
-  resource_group_name = azurerm_resource_group.orgwide_resource_group.name
-  location            = azurerm_resource_group.orgwide_resource_group.location
+  resource_group_name = azurerm_resource_group.orgwide_resource_group[0].name
+  location            = azurerm_resource_group.orgwide_resource_group[0].location
   name                = "upwind-cs-scaler-function-identity-${var.upwind_organization_id}"
 }
 
@@ -164,8 +164,8 @@ resource "azurerm_role_assignment" "cloudscanner_scaler" {
 # Create an identity that will have key vault service encryption access subscription wide
 resource "azurerm_user_assigned_identity" "key_vault_access" {
   count               = local.cloudscanner_enabled ? 1 : 0
-  resource_group_name = azurerm_resource_group.orgwide_resource_group.name
-  location            = azurerm_resource_group.orgwide_resource_group.location
+  resource_group_name = azurerm_resource_group.orgwide_resource_group[0].name
+  location            = azurerm_resource_group.orgwide_resource_group[0].location
   name                = "upwind-cs-disk-encryption-identity-${var.upwind_organization_id}"
 }
 
