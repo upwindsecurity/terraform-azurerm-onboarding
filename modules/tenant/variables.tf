@@ -136,6 +136,12 @@ variable "azure_custom_role_permissions" {
   ]
 }
 
+variable "azure_allow_blob_access" {
+  description = "If set to true, install the permissions to provide read access to read Azure Blob Data. This is required for App Scanning"
+  type        = bool
+  default     = true
+}
+
 variable "azure_role_definition_wait_time" {
   description = "The duration of time to wait after Azure role definitions are created to ensure full propagation and prevent timing issues in dependent resources."
   type        = string

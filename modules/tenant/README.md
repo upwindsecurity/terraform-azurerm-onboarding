@@ -21,7 +21,7 @@ seamlessly connect their entire tenant for comprehensive monitoring and security
 | Name | Version |
 |------|---------|
 | <a name="provider_azuread"></a> [azuread](#provider\_azuread) | 3.4.0 |
-| <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 4.35.0 |
+| <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 4.36.0 |
 | <a name="provider_http"></a> [http](#provider\_http) | 3.5.0 |
 | <a name="provider_null"></a> [null](#provider\_null) | 3.2.4 |
 | <a name="provider_random"></a> [random](#provider\_random) | 3.7.2 |
@@ -84,6 +84,7 @@ No modules.
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_apply_to_child_groups"></a> [apply\_to\_child\_groups](#input\_apply\_to\_child\_groups) | When true and azure\_tenant\_id is provided, permissions will be applied to all child management groups. When false, permissions will only be applied to the tenant root management group. | `bool` | `false` | no |
+| <a name="input_azure_allow_blob_access"></a> [azure\_allow\_blob\_access](#input\_azure\_allow\_blob\_access) | If set to true, install the permissions to provide read access to read Azure Blob Data. This is required for App Scanning | `bool` | `true` | no |
 | <a name="input_azure_application_msgraph_roles"></a> [azure\_application\_msgraph\_roles](#input\_azure\_application\_msgraph\_roles) | List of Microsoft Graph API roles that should be granted to the Azure AD application. | `list(string)` | <pre>[<br/>  "Directory.Read.All",<br/>  "Policy.Read.All",<br/>  "UserAuthenticationMethod.Read.All"<br/>]</pre> | no |
 | <a name="input_azure_application_name_prefix"></a> [azure\_application\_name\_prefix](#input\_azure\_application\_name\_prefix) | The prefix used for the name of the Azure AD application. | `string` | `"upwindsecurity"` | no |
 | <a name="input_azure_application_owners"></a> [azure\_application\_owners](#input\_azure\_application\_owners) | List of user IDs that will be set as owners of the Azure application. Each ID should be in the form of a GUID. If this list is left empty, the owner defaults to the authenticated principal. | `list(string)` | `[]` | no |
