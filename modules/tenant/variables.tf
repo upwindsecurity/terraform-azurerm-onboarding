@@ -157,6 +157,12 @@ variable "azure_cloudscanner_location" {
   default     = "westus"
 }
 
+variable "enable_function_scanning" {
+  description = "If set to true will enable Storage Blob Data Reader role assignment for upwind-cs-vmss-identity"
+  type        = bool
+  default     = true
+}
+
 variable "create_organizational_credentials" {
   description = "Set to true to create organizational credentials for the management groups pending onboarding. Needs to be set to false before destroying module."
   type        = bool
