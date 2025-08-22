@@ -1,17 +1,7 @@
-data "azurerm_management_group" "root_tenant_as_management_group" {
-  count = var.azure_tenant_id != "" ? 1 : 0
-  name  = var.azure_tenant_id
-}
-
 locals {
-  # If tenant ID is supplied and apply_to_child_groups is true, get its direct child management groups
-  # If tenant ID is supplied but apply_to_child_groups is false, use the tenant ID as the management group
+  # If tenant ID is supplied, use it as the management group
   # Otherwise use the provided management group IDs for backwards compatibility
-  management_group_ids = var.azure_tenant_id != "" ? (
-    var.apply_to_child_groups ? [
-      for mg in try(data.azurerm_management_group.root_tenant_as_management_group[0].management_group_ids, []) : mg
-    ] : [var.azure_tenant_id]
-  ) : var.azure_management_group_ids
+  management_group_ids = var.azure_tenant_id != "" ? [var.azure_tenant_id] : var.azure_management_group_ids
 
   # Normalize management group IDs to handle both formats (name only or full resource ID)
   normalized_management_group_ids = [
@@ -35,14 +25,27 @@ locals {
     if lookup(local.organizational_credentials, tenant_id, false) == false
   ]
 
+  # Determine effective scopes for service principal role assignments
+  # Use cloudapi include/exclude subscription logic or fall back to organizational scope
+  effective_scopes = length(var.cloudapi_include_subscriptions) > 0 ? [
+    for sub_id in var.cloudapi_include_subscriptions :
+    "/subscriptions/${sub_id}"
+    ] : (
+    length(var.cloudapi_exclude_subscriptions) > 0 ? [
+      for sub in data.azurerm_subscriptions.all.subscriptions :
+      "/subscriptions/${sub.subscription_id}"
+      if !contains(var.cloudapi_exclude_subscriptions, sub.subscription_id)
+    ] : local.normalized_management_group_ids
+  )
+
   # Construct a map of role assignments using combinations of scopes and built-in roles.
   # This map is only created if there are valid scopes and roles to process.
   builtin_role_assignments = (
-    length(local.normalized_management_group_ids) > 0 &&
+    length(local.effective_scopes) > 0 &&
     length(var.azure_roles) > 0
     ? {
       for pair in setproduct(
-        local.normalized_management_group_ids,
+        local.effective_scopes,
         var.azure_roles,
       ) :
       "${pair[0]}|${pair[1]}" => {
@@ -57,7 +60,7 @@ locals {
   custom_role_assignments = (
     length(var.azure_custom_role_permissions) > 0
     ? toset([
-      for scope in local.normalized_management_group_ids :
+      for scope in local.effective_scopes :
       scope
     ])
     : []
@@ -83,6 +86,9 @@ locals {
 
 # Retrieve the current Azure AD client configuration.
 data "azuread_client_config" "current" {}
+
+# Get all subscriptions for exclude logic
+data "azurerm_subscriptions" "all" {}
 
 # Retrieve the orchestrator Azure subscription details.
 data "azurerm_subscription" "orchestrator" {
