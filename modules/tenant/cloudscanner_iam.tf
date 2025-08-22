@@ -2,6 +2,18 @@
 
 locals {
   resource_suffix = format("%s%s", var.upwind_organization_id, var.resource_suffix)
+
+  # Determine cloudscanner role assignment scopes based on include/exclude subscription parameters
+  cloudscanner_scopes = length(var.cloudscanner_include_subscriptions) > 0 ? [
+    for sub_id in var.cloudscanner_include_subscriptions :
+    "/subscriptions/${sub_id}"
+    ] : (
+    length(var.cloudscanner_exclude_subscriptions) > 0 ? [
+      for sub in data.azurerm_subscriptions.all.subscriptions :
+      "/subscriptions/${sub.subscription_id}"
+      if !contains(var.cloudscanner_exclude_subscriptions, sub.subscription_id)
+    ] : local.normalized_management_group_ids
+  )
 }
 
 resource "azurerm_role_definition" "deployer" {
@@ -68,6 +80,8 @@ resource "azurerm_role_definition" "cloudscanner_worker" {
       "Microsoft.Compute/disks/read",
       "Microsoft.Compute/disks/write",
       "Microsoft.Compute/disks/delete",
+      # Required for reencrypting CMK encrypted disks
+      "Microsoft.Compute/diskEncryptionSets/read",
       # Following roles are required for attaching / detaching disks to VMSS instances
       "Microsoft.Compute/virtualMachineScaleSets/virtualMachines/attachDetachDataDisks/action",
       "Microsoft.Compute/virtualMachineScaleSets/virtualMachines/write",
@@ -96,7 +110,7 @@ resource "azurerm_role_assignment" "cloudscanner_worker" {
 # Assign Storage Blob Data Reader role to the worker identity in each management group
 # Because this is a data action permission, we can't include this in a custom role definition and assign it at a management group scope.
 resource "azurerm_role_assignment" "storage_reader" {
-  for_each             = (local.cloudscanner_enabled && !var.disable_function_scanning) ? toset(local.normalized_management_group_ids) : []
+  for_each             = (local.cloudscanner_enabled && !var.disable_function_scanning) ? toset(local.cloudscanner_scopes) : []
   role_definition_name = "Storage Blob Data Reader"
   principal_id         = azurerm_user_assigned_identity.worker_user_assigned_identity[0].principal_id
   scope                = each.value
@@ -181,11 +195,11 @@ resource "azurerm_role_assignment" "disk_encryption_key_vault_access" {
 
 # region Target
 
-# Create target role definitions per management group
+# Create target role definition per scope
 resource "azurerm_role_definition" "target_role" {
-  for_each    = local.cloudscanner_enabled ? toset(local.normalized_management_group_ids) : []
+  for_each    = local.cloudscanner_enabled ? toset(local.cloudscanner_scopes) : []
   name        = "CloudScannerTargetRole-${local.resource_suffix}-${split("/", each.value)[length(split("/", each.value)) - 1]}"
-  description = "Role for CloudScanner workers to snapshot virtual machines and pull acr images in this management group"
+  description = "Role for CloudScanner workers to snapshot virtual machines and pull acr images in this scope"
   scope       = each.value
   permissions {
     actions = [
@@ -204,14 +218,14 @@ resource "azurerm_role_definition" "target_role" {
   }
 }
 
-# Wait for all target role definitions to be created
+# Wait for target role definitions to be created
 resource "time_sleep" "target_role_definition_wait" {
   count           = local.cloudscanner_enabled ? 1 : 0
   depends_on      = [azurerm_role_definition.target_role]
   create_duration = var.azure_role_definition_wait_time
 }
 
-# add role assignments for each target subscription
+# Add role assignments for each target scope using the matching role definition
 resource "azurerm_role_assignment" "target_role_assignment" {
   for_each           = resource.azurerm_role_definition.target_role
   role_definition_id = each.value.role_definition_resource_id
