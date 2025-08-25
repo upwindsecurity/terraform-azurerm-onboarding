@@ -16,10 +16,10 @@ resource "azurerm_key_vault" "orgwide_key_vault" {
   tenant_id                 = data.azurerm_subscription.orchestrator.tenant_id
   sku_name                  = "standard"
   enable_rbac_authorization = true
-  tags = {
+  tags = merge(var.tags, {
     "UpwindComponent" = "CloudScanner"
     "UpwindOrgId"     = var.upwind_organization_id
-  }
+  })
 }
 
 resource "azurerm_role_assignment" "kv_admin" {
@@ -50,6 +50,7 @@ resource "azurerm_key_vault_secret" "scanner_client_id" {
   value        = var.scanner_client_id
   key_vault_id = azurerm_key_vault.orgwide_key_vault[0].id
   depends_on   = [azurerm_role_assignment.kv_admin]
+  tags         = var.tags
 }
 
 resource "azurerm_key_vault_secret" "scanner_client_secret" {
@@ -58,4 +59,5 @@ resource "azurerm_key_vault_secret" "scanner_client_secret" {
   value        = var.scanner_client_secret
   key_vault_id = azurerm_key_vault.orgwide_key_vault[0].id
   depends_on   = [azurerm_role_assignment.kv_admin]
+  tags         = var.tags
 }

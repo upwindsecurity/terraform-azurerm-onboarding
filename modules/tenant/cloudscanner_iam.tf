@@ -65,6 +65,7 @@ resource "azurerm_user_assigned_identity" "worker_user_assigned_identity" {
   resource_group_name = azurerm_resource_group.orgwide_resource_group[0].name
   location            = azurerm_resource_group.orgwide_resource_group[0].location
   name                = "upwind-cs-vmss-identity-${var.upwind_organization_id}"
+  tags                = var.tags
 }
 
 resource "azurerm_role_definition" "cloudscanner_worker" {
@@ -125,6 +126,7 @@ resource "azurerm_user_assigned_identity" "scaler_user_assigned_identity" {
   resource_group_name = azurerm_resource_group.orgwide_resource_group[0].name
   location            = azurerm_resource_group.orgwide_resource_group[0].location
   name                = "upwind-cs-scaler-function-identity-${var.upwind_organization_id}"
+  tags                = var.tags
 }
 
 resource "azurerm_role_definition" "cloudscanner_scaler" {
@@ -181,6 +183,7 @@ resource "azurerm_user_assigned_identity" "key_vault_access" {
   resource_group_name = azurerm_resource_group.orgwide_resource_group[0].name
   location            = azurerm_resource_group.orgwide_resource_group[0].location
   name                = "upwind-cs-disk-encryption-identity-${var.upwind_organization_id}"
+  tags                = var.tags
 }
 
 # Assign the "Key Vault Crypto Service Encryption User" role to the Azure Disk Encryption set
