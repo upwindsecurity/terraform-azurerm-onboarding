@@ -196,6 +196,12 @@ variable "resource_suffix" {
   }
 }
 
+variable "tags" {
+  description = "Tags to apply to all resources."
+  type        = map(string)
+  default     = {}
+}
+
 # endregion general
 
 variable "skip_app_service_provider_registration" {
