@@ -51,7 +51,7 @@ resource "time_sleep" "deployer_role_definition_wait" {
 resource "azurerm_role_assignment" "deployer" {
   count              = local.cloudscanner_enabled ? 1 : 0
   role_definition_id = azurerm_role_definition.deployer[0].role_definition_resource_id
-  principal_id       = azuread_service_principal.this.object_id
+  principal_id       = local.service_principal_object_id
   scope              = local.orchestrator_subscription_scope
   depends_on         = [time_sleep.deployer_role_definition_wait[0]]
 }
