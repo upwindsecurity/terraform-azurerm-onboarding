@@ -81,12 +81,20 @@ resource "azurerm_role_definition" "cloudscanner_worker" {
       "Microsoft.Compute/disks/read",
       "Microsoft.Compute/disks/write",
       "Microsoft.Compute/disks/delete",
+      "Microsoft.Compute/disks/beginGetAccess/action",
       # Required for reencrypting CMK encrypted disks
       "Microsoft.Compute/diskEncryptionSets/read",
       # Following roles are required for attaching / detaching disks to VMSS instances
+      "Microsoft.Compute/virtualMachines/instanceView/read",
+      "Microsoft.Compute/virtualMachines/read",
+      "Microsoft.Compute/virtualMachineScaleSets/read",
+      "Microsoft.Compute/virtualMachineScaleSets/instanceView/read",
+      "Microsoft.Compute/virtualMachineScaleSets/virtualMachines/read",
+      "Microsoft.Compute/virtualMachineScaleSets/virtualMachines/instanceView/read",
       "Microsoft.Compute/virtualMachineScaleSets/virtualMachines/attachDetachDataDisks/action",
       "Microsoft.Compute/virtualMachineScaleSets/virtualMachines/write",
-      "Microsoft.Network/virtualNetworks/subnets/join/action"
+      # Required for worker VMs to join subnets
+      "Microsoft.Network/virtualNetworks/subnets/join/action",
     ]
   }
 }
