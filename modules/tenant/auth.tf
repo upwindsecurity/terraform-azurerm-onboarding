@@ -1,5 +1,12 @@
 locals {
-  upwind_access_token         = try(jsondecode(data.http.upwind_get_access_token_request.response_body).access_token, null)
+  upwind_access_token = sensitive(
+    try(
+      jsondecode(
+        data.http.upwind_get_access_token_request.response_body
+      ).access_token,
+      null
+    )
+  )
   upwind_auth_endpoint        = var.upwind_region == "us" ? var.upwind_auth_endpoint : replace(var.upwind_auth_endpoint, ".upwind.", format(".%s.upwind.", var.upwind_region))
   upwind_integration_endpoint = var.upwind_region == "us" ? var.upwind_integration_endpoint : replace(var.upwind_integration_endpoint, ".upwind.", format(".%s.upwind.", var.upwind_region))
 }
