@@ -73,20 +73,38 @@ variable "azure_management_group_ids" {
   }
 }
 
+variable "azure_application_client_id" {
+  description = "Optional client ID of an existing Azure AD application. If provided, the module will use this existing application instead of creating a new one. Mutually exclusive with azure_application_name_prefix."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.azure_application_client_id == null || can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.azure_application_client_id))
+    error_message = "The azure_application_client_id must be a valid GUID format."
+  }
+}
+
+variable "azure_application_client_secret" {
+  description = "Client secret for the existing Azure AD application. Required when azure_application_client_id is provided and organizational credentials will be created. Should be managed externally (e.g., Azure Portal, CLI, or separate automation)."
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
 variable "azure_application_name_prefix" {
-  description = "The prefix used for the name of the Azure AD application."
+  description = "The prefix used for the name of the Azure AD application. The prefix used for the name of the Azure AD application. Only used when creating a new application (when azure_application_client_id is not provided)."
   type        = string
   default     = "upwindsecurity"
 }
 
 variable "azure_application_owners" {
-  description = "List of user IDs that will be set as owners of the Azure application. Each ID should be in the form of a GUID. If this list is left empty, the owner defaults to the authenticated principal."
+  description = "List of user IDs that will be set as owners of the Azure application. Each ID should be in the form of a GUID. If this list is left empty, the owner defaults to the authenticated principal. Only used when creating a new application (when azure_application_client_id is not provided)."
   type        = list(string)
   default     = []
 }
 
 variable "azure_application_msgraph_roles" {
-  description = "List of Microsoft Graph API roles that should be granted to the Azure AD application."
+  description = "List of Microsoft Graph API roles that should be granted to the Azure AD application. These permissions are required for platform functionality and will be applied to both new and existing applications."
   type        = list(string)
   default = [
     "Directory.Read.All",

@@ -66,12 +66,15 @@ locals {
     : []
   )
 
-  # Generate a unique application name.
+  # Generate a unique application name (only used when creating new app).
   app_name = format(
     "%s-%s",
     var.azure_application_name_prefix,
     random_id.uid.hex,
   )
+
+  # Determine if we should create a new app or use existing
+  create_new_application = var.azure_application_client_id == null
 
   # Generate a unique custom role name prefix.
   custom_role_name_prefix = format(
@@ -82,6 +85,15 @@ locals {
 
   # Only create credentials if there are pending tenants and we're not in destroy mode
   create_credentials = length(local.pending_tenants) > 0 && var.create_organizational_credentials
+
+  # Get the service principal object ID (from either new or existing)
+  service_principal_object_id = local.create_new_application ? azuread_service_principal.this[0].object_id : data.azuread_service_principal.existing[0].object_id
+
+  # Get the application client ID (from either new or existing)
+  application_client_id = local.create_new_application ? azuread_application.this[0].client_id : var.azure_application_client_id
+
+  # For existing applications, assume the app owner has configured permissions
+  needs_api_access = local.create_new_application && length(var.azure_application_msgraph_roles) > 0
 }
 
 # Retrieve the current Azure AD client configuration.
@@ -115,8 +127,15 @@ resource "random_id" "rid" {
   byte_length = 4
 }
 
-# Create an Azure AD application with the required permissions.
+# Data source for existing application (when provided)
+data "azuread_application" "existing" {
+  count     = local.create_new_application ? 0 : 1
+  client_id = var.azure_application_client_id
+}
+
+# Create an Azure AD application with the required permissions (only when not using existing).
 resource "azuread_application" "this" {
+  count        = local.create_new_application ? 1 : 0
   display_name = local.app_name
   owners = coalescelist(
     var.azure_application_owners,
@@ -137,9 +156,9 @@ resource "azuread_application" "this" {
 
 # Grant Microsoft Graph API roles to the Azure AD application.
 resource "azuread_application_api_access" "msgraph" {
-  count = length(var.azure_application_msgraph_roles) > 0 ? 1 : 0
+  count = local.needs_api_access ? 1 : 0
 
-  application_id = azuread_application.this.id
+  application_id = azuread_application.this[0].id
   api_client_id  = data.azuread_application_published_app_ids.well_known.result["MicrosoftGraph"]
 
   role_ids = [
@@ -148,20 +167,28 @@ resource "azuread_application_api_access" "msgraph" {
   ]
 }
 
-# Create a service principal for the Azure AD application.
+# Data source for existing service principal (when using existing app)
+data "azuread_service_principal" "existing" {
+  count     = local.create_new_application ? 0 : 1
+  client_id = var.azure_application_client_id
+}
+
+# Create a service principal for the Azure AD application (only for new applications).
 resource "azuread_service_principal" "this" {
-  client_id = azuread_application.this.client_id
+  count     = local.create_new_application ? 1 : 0
+  client_id = azuread_application.this[0].client_id
   owners = coalescelist(
     var.azure_application_owners,
     [data.azuread_client_config.current.object_id]
   )
 }
 
-# Create a long-lived password for the Azure AD application.
+# Create a long-lived password for the Azure AD application (only for new applications).
 resource "azuread_application_password" "client_secret" {
+  count      = local.create_new_application ? 1 : 0
   depends_on = [azuread_service_principal.this]
 
-  application_id = azuread_application.this.id
+  application_id = azuread_application.this[0].id
   end_date       = "2999-12-31T23:59:59Z"
 }
 
@@ -169,7 +196,7 @@ resource "azuread_application_password" "client_secret" {
 resource "azurerm_role_assignment" "builtin" {
   for_each = local.builtin_role_assignments
 
-  principal_id         = azuread_service_principal.this.object_id
+  principal_id         = local.service_principal_object_id
   role_definition_name = each.value.role
   scope                = each.value.scope
 }
@@ -198,7 +225,7 @@ resource "azurerm_role_definition" "custom" {
 resource "azurerm_role_assignment" "custom" {
   for_each = local.custom_role_assignments
 
-  principal_id       = azuread_service_principal.this.object_id
+  principal_id       = local.service_principal_object_id
   role_definition_id = azurerm_role_definition.custom[each.value].role_definition_resource_id
   scope              = each.value
 }
@@ -208,10 +235,7 @@ data "http" "upwind_get_organizational_credentials_request" {
 
   url = format(
     "%s/v1/organizations/%s/organizational-credentials/azure",
-    var.upwind_region == "us" ? var.upwind_integration_endpoint :
-    var.upwind_region == "eu" ? replace(var.upwind_integration_endpoint, ".upwind.", ".eu.upwind.") :
-    var.upwind_region == "me" ? replace(var.upwind_integration_endpoint, ".upwind.", ".me.upwind.") :
-    var.upwind_integration_endpoint,
+    local.upwind_integration_endpoint,
     var.upwind_organization_id,
   )
 
@@ -250,10 +274,7 @@ data "http" "upwind_create_organizational_credentials_request" {
   method = "POST"
   url = format(
     "%s/v1/organizations/%s/organizational-accounts/azure/onboard",
-    var.upwind_region == "us" ? var.upwind_integration_endpoint :
-    var.upwind_region == "eu" ? replace(var.upwind_integration_endpoint, ".upwind.", ".eu.upwind.") :
-    var.upwind_region == "me" ? replace(var.upwind_integration_endpoint, ".upwind.", ".me.upwind.") :
-    var.upwind_integration_endpoint,
+    local.upwind_integration_endpoint,
     var.upwind_organization_id,
   )
 
@@ -271,9 +292,9 @@ data "http" "upwind_create_organizational_credentials_request" {
           "subscription_id" = var.azure_orchestrator_subscription_id
         },
         "spec" = {
-          "tenant_id"     = azuread_service_principal.this.application_tenant_id
-          "client_id"     = azuread_service_principal.this.client_id
-          "client_secret" = azuread_application_password.client_secret.value
+          "tenant_id"     = local.create_new_application ? azuread_service_principal.this[0].application_tenant_id : data.azuread_service_principal.existing[0].application_tenant_id
+          "client_id"     = local.application_client_id
+          "client_secret" = local.create_new_application ? azuread_application_password.client_secret[0].value : var.azure_application_client_secret
         }
       }
     }
