@@ -16,9 +16,22 @@ resource "azurerm_key_vault" "orgwide_key_vault" {
   tenant_id                 = data.azurerm_subscription.orchestrator.tenant_id
   sku_name                  = "standard"
   enable_rbac_authorization = true
+
+  # Deny public access if key_vault_deny_traffic is true
+  dynamic "network_acls" {
+    for_each = var.key_vault_deny_traffic ? [1] : []
+    content {
+      default_action             = "Deny"                 # Block all access by default
+      bypass                     = "AzureServices"        # Allow trusted Microsoft services (Container Apps, etc.)
+      ip_rules                   = var.key_vault_ip_rules # IP addresses or CIDR blocks that should be able to access the Key Vault
+      virtual_network_subnet_ids = []                     # No virtual network subnet IDs, we create private endpoints for each Scanner
+    }
+  }
+
   tags = merge(var.tags, {
-    "UpwindComponent" = "CloudScanner"
-    "UpwindOrgId"     = var.upwind_organization_id
+    "UpwindComponent"  = "CloudScanner"
+    "UpwindOrgId"      = var.upwind_organization_id
+    "DenyPublicAccess" = var.key_vault_deny_traffic ? "true" : "false"
   })
 }
 
