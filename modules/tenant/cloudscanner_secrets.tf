@@ -21,10 +21,10 @@ resource "azurerm_key_vault" "orgwide_key_vault" {
   dynamic "network_acls" {
     for_each = var.key_vault_deny_traffic ? [1] : []
     content {
-      default_action             = "Deny"                 # Block all access by default
-      bypass                     = "AzureServices"        # Allow trusted Microsoft services (Container Apps, etc.)
-      ip_rules                   = var.key_vault_ip_rules # IP addresses or CIDR blocks that should be able to access the Key Vault
-      virtual_network_subnet_ids = []                     # No virtual network subnet IDs, we create private endpoints for each Scanner
+      default_action             = "Deny"                                                              # Block all access by default
+      bypass                     = "AzureServices"                                                     # Allow trusted Microsoft services (Container Apps, etc.)
+      ip_rules                   = var.key_vault_ip_rules                                              # IP addresses or CIDR blocks that should be able to access the Key Vault
+      virtual_network_subnet_ids = local.create_vnet ? [azurerm_subnet.cloudscanner_subnet[0].id] : [] # Allow access from the cloudscanner subnet via service endpoint
     }
   }
 
