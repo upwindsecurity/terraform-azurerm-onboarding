@@ -49,39 +49,3 @@ resource "azurerm_subnet_network_security_group_association" "cloudscanner_subne
   subnet_id                 = azurerm_subnet.cloudscanner_subnet[0].id
   network_security_group_id = azurerm_network_security_group.clouscanner_sg[0].id
 }
-
-# Public IP for NAT Gateway
-resource "azurerm_public_ip" "nat_gateway_ip" {
-  count               = local.create_vnet ? 1 : 0
-  name                = "upwind-cs-nat-ip-${var.upwind_organization_id}"
-  location            = var.azure_cloudscanner_location
-  resource_group_name = azurerm_resource_group.orgwide_resource_group[0].name
-  allocation_method   = "Static"
-  sku                 = "Standard"
-  tags                = var.tags
-}
-
-# NAT Gateway for outbound internet access
-resource "azurerm_nat_gateway" "cloudscanner_nat" {
-  count                   = local.create_vnet ? 1 : 0
-  name                    = "upwind-cs-nat-${var.upwind_organization_id}"
-  location                = var.azure_cloudscanner_location
-  resource_group_name     = azurerm_resource_group.orgwide_resource_group[0].name
-  sku_name                = "Standard"
-  idle_timeout_in_minutes = 10
-  tags                    = var.tags
-}
-
-# Associate public IP with NAT Gateway
-resource "azurerm_nat_gateway_public_ip_association" "nat_gateway_ip_association" {
-  count                = local.create_vnet ? 1 : 0
-  nat_gateway_id       = azurerm_nat_gateway.cloudscanner_nat[0].id
-  public_ip_address_id = azurerm_public_ip.nat_gateway_ip[0].id
-}
-
-# Associate NAT Gateway with subnet
-resource "azurerm_subnet_nat_gateway_association" "cloudscanner_subnet_nat_association" {
-  count          = local.create_vnet ? 1 : 0
-  subnet_id      = azurerm_subnet.cloudscanner_subnet[0].id
-  nat_gateway_id = azurerm_nat_gateway.cloudscanner_nat[0].id
-}

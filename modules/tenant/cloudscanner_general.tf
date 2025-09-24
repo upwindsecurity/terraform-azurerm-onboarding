@@ -67,6 +67,7 @@ resource "azurerm_resource_group" "orgwide_resource_group" {
   tags     = var.tags
 }
 
+
 resource "azurerm_log_analytics_workspace" "log_analytics" {
   count               = local.create_vnet ? 1 : 0
   name                = "upwind-log-analytics-workspace"
@@ -85,5 +86,6 @@ resource "azurerm_container_app_environment" "cloudscanner_container_app_environ
   log_analytics_workspace_id = azurerm_log_analytics_workspace.log_analytics[0].id
   # Container App Environment integrated with VNet for proper networking
   infrastructure_subnet_id = azurerm_subnet.cloudscanner_subnet[0].id
-  tags                     = var.tags
+
+  tags = var.tags
 }
