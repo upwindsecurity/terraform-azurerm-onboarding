@@ -223,6 +223,18 @@ variable "tags" {
   default     = {}
 }
 
+variable "key_vault_deny_traffic" {
+  type        = bool
+  description = "Whether to deny traffic to the Key Vault using network ACLs. When true, only trusted Azure services and allowed IPs can access the vault."
+  default     = true
+}
+
+variable "key_vault_ip_rules" {
+  type        = list(string)
+  description = "One or more IP Addresses, or CIDR Blocks which should be able to access the Key Vault. This is only relevant if key_vault_deny_traffic is set to true."
+  default     = []
+}
+
 # endregion general
 
 variable "skip_app_service_provider_registration" {
