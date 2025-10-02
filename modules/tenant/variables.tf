@@ -107,6 +107,9 @@ variable "azure_application_msgraph_roles" {
   description = "List of Microsoft Graph API roles that should be granted to the Azure AD application. These permissions are required for platform functionality and will be applied to both new and existing applications."
   type        = list(string)
   default = [
+    "User.Read.All",
+    "Group.Read.All",
+    "RoleManagement.Read.All",
     "Directory.Read.All",
     "Policy.Read.All",
     "UserAuthenticationMethod.Read.All",
