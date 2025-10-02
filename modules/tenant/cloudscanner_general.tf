@@ -5,8 +5,9 @@ locals {
 
 # Register the Microsoft.App resource provider which is required for Container Apps
 # Using null_resource with local-exec to avoid provider configuration issues when used as a module
+# If key_vault_deny_traffic is true, we don't need to register the Microsoft.App provider. The scaler will run in Upwind.
 resource "null_resource" "register_app_service_provider" {
-  count = local.cloudscanner_enabled && !var.skip_app_service_provider_registration ? 1 : 0
+  count = local.cloudscanner_enabled && !var.skip_app_service_provider_registration && !var.key_vault_deny_traffic ? 1 : 0
 
   provisioner "local-exec" {
     command     = <<EOT
