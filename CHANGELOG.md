@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.5.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.4.0...v1.5.0) (2025-10-02)
+
+### Features
+
+* **AG-3433:** supporting locked down key vault ([#19](https://github.com/upwindsecurity/terraform-azurerm-onboarding/issues/19)) ([95a78f3](https://github.com/upwindsecurity/terraform-azurerm-onboarding/commit/95a78f3dc159ed47c954386762bedcde93df24b9))
+
 ## [1.1.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.0.0...v1.1.0) (2025-07-18)
 
 ### Features
