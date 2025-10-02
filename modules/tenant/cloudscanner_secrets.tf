@@ -21,10 +21,9 @@ resource "azurerm_key_vault" "orgwide_key_vault" {
   dynamic "network_acls" {
     for_each = var.key_vault_deny_traffic ? [1] : []
     content {
-      default_action             = "Deny"                                                              # Block all access by default
-      bypass                     = "AzureServices"                                                     # Allow trusted Microsoft services (Container Apps, etc.)
-      ip_rules                   = var.key_vault_ip_rules                                              # IP addresses or CIDR blocks that should be able to access the Key Vault
-      virtual_network_subnet_ids = local.create_vnet ? [azurerm_subnet.cloudscanner_subnet[0].id] : [] # Allow access from the cloudscanner subnet via service endpoint
+      default_action = "Deny"                 # Block all access by default
+      bypass         = "AzureServices"        # Allow trusted Microsoft services (Container Apps, etc.)
+      ip_rules       = var.key_vault_ip_rules # IP addresses or CIDR blocks that should be able to access the Key Vault
     }
   }
 
@@ -33,6 +32,13 @@ resource "azurerm_key_vault" "orgwide_key_vault" {
     "UpwindOrgId"      = var.upwind_organization_id
     "DenyPublicAccess" = var.key_vault_deny_traffic ? "true" : "false"
   })
+}
+
+# Create private DNS zone for Key Vault, dns links will be added per cloudscanner deployment
+resource "azurerm_private_dns_zone" "orgwide_keyvault_dns_zone" {
+  count               = local.cloudscanner_enabled && var.key_vault_deny_traffic ? 1 : 0
+  name                = "privatelink.vaultcore.azure.net"
+  resource_group_name = azurerm_resource_group.orgwide_resource_group[0].name
 }
 
 resource "azurerm_role_assignment" "kv_admin" {
