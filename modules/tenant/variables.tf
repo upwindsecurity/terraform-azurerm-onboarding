@@ -226,7 +226,7 @@ variable "tags" {
 variable "key_vault_deny_traffic" {
   type        = bool
   description = "Whether to deny traffic to the Key Vault using network ACLs. When true, only trusted Azure services and allowed IPs can access the vault."
-  default     = true
+  default     = false
 }
 
 variable "key_vault_ip_rules" {
