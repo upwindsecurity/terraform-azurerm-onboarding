@@ -27,7 +27,7 @@ locals {
 
   # Determine effective scopes for service principal role assignments
   # Use cloudapi include/exclude subscription logic or fall back to organizational scope
-  effective_scopes = length(var.cloudapi_include_subscriptions) > 0 ? [
+  base_effective_scopes = length(var.cloudapi_include_subscriptions) > 0 ? [
     for sub_id in var.cloudapi_include_subscriptions :
     "/subscriptions/${sub_id}"
     ] : (
@@ -36,6 +36,35 @@ locals {
       "/subscriptions/${sub.subscription_id}"
       if !contains(var.cloudapi_exclude_subscriptions, sub.subscription_id)
     ] : local.normalized_management_group_ids
+  )
+
+  orchestrator_subscription_scope = "/subscriptions/${var.azure_orchestrator_subscription_id}"
+  using_sub_management_group      = var.azure_tenant_id == "" && length(var.azure_management_group_ids) > 0
+
+  # Determine final effective scopes with orchestrator subscription handling:
+  #
+  # Scenario 1: Root tenant management group (azure_tenant_id is set)
+  #   - Use the tenant root scope only
+  #   - Don't add orchestrator subscription separately (already covered by tenant root)
+  #
+  # Scenario 2: Sub-management group (azure_management_group_ids is set, azure_tenant_id is empty)
+  #   - Use the sub-management group scope
+  #   - Add orchestrator subscription explicitly (may not be in the sub-management group hierarchy)
+  #
+  # Scenario 3: Explicit include/exclude subscription lists
+  #   - Use the computed subscription list
+  #   - Add orchestrator subscription only if not already in the list
+  effective_scopes = (
+    length(var.cloudapi_include_subscriptions) == 0 &&
+    length(var.cloudapi_exclude_subscriptions) == 0 &&
+    local.using_sub_management_group
+    ) ? concat(local.base_effective_scopes, [local.orchestrator_subscription_scope]) : (
+    # For include/exclude lists, only add orchestrator if not already present
+    length(var.cloudapi_include_subscriptions) > 0 || length(var.cloudapi_exclude_subscriptions) > 0 ?
+    (!contains(local.base_effective_scopes, local.orchestrator_subscription_scope) ?
+      concat(local.base_effective_scopes, [local.orchestrator_subscription_scope]) :
+      local.base_effective_scopes
+    ) : local.base_effective_scopes
   )
 
   # Construct a map of role assignments using combinations of scopes and built-in roles.
