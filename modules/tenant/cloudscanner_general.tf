@@ -1,6 +1,5 @@
 locals {
-  cloudscanner_enabled            = var.azure_orchestrator_subscription_id != "" && var.scanner_client_id != ""
-  orchestrator_subscription_scope = "/subscriptions/${var.azure_orchestrator_subscription_id}"
+  cloudscanner_enabled = var.azure_orchestrator_subscription_id != "" && var.scanner_client_id != ""
 }
 
 # Register the Microsoft.App resource provider which is required for Container Apps
