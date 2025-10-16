@@ -146,7 +146,6 @@ variable "azure_custom_role_permissions" {
   description = "List of custom permissions that should be granted to the service principal through a custom role."
   type        = list(string)
   default = [
-    "Microsoft.Web/sites/host/listkeys/action",
     "Microsoft.Web/sites/config/list/Action",
   ]
 }
