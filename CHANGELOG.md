@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.5.2](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.5.1...v1.5.2) (2025-10-16)
+
+### Bug Fixes
+
+* **AG-3915:** explicitly including orchestrator subscription in scopes if sub management group is used instead of tenant ([#23](https://github.com/upwindsecurity/terraform-azurerm-onboarding/issues/23)) ([734f832](https://github.com/upwindsecurity/terraform-azurerm-onboarding/commit/734f8323e1098498264506aebea5326047025d46))
+
 ## [1.1.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.0.0...v1.1.0) (2025-07-18)
 
 ### Features
