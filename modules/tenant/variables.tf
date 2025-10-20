@@ -66,11 +66,6 @@ variable "azure_management_group_ids" {
   description = "List of management group names (not full resource IDs) to grant read access to. For example, use 'upwindsecurity-sandbox' instead of '/providers/Microsoft.Management/managementGroups/upwindsecurity-sandbox'. This variable is mutually exclusive with `azure_include_all_subscriptions` and `azure_include_subscription_ids`, and it takes precedence if both sets of variables are provided."
   type        = list(string)
   default     = []
-
-  validation {
-    condition     = length(var.azure_management_group_ids) <= 1
-    error_message = "Only one management group ID is supported for organizational onboarding."
-  }
 }
 
 variable "azure_application_client_id" {

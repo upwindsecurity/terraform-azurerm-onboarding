@@ -17,7 +17,9 @@ locals {
   }
 
   # Tenant IDs to onboard - kept as an array for future compatibility to multiple tenants
-  tenant_ids = var.azure_tenant_id != "" ? [var.azure_tenant_id] : [local.management_group_ids[0]]
+  # When azure_tenant_id is provided, use it directly
+  # Otherwise, derive it from the orchestrator subscription's tenant
+  tenant_ids = var.azure_tenant_id != "" ? [var.azure_tenant_id] : [data.azurerm_subscription.orchestrator.tenant_id]
 
   # Gather tenant IDs pending onboarding, i.e. those that do not have existing credentials
   pending_tenants = [
