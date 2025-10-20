@@ -139,11 +139,16 @@ data "azurerm_subscription" "orchestrator" {
 }
 
 # Retrieve application IDs for APIs published by Microsoft.
-data "azuread_application_published_app_ids" "well_known" {}
+# Only needed when creating a new application and adding Graph roles
+data "azuread_application_published_app_ids" "well_known" {
+  count = local.needs_api_access ? 1 : 0
+}
 
 # Retrieve the Microsoft Graph service principal details.
+# Only needed when creating a new application and adding Graph roles
 data "azuread_service_principal" "msgraph" {
-  client_id = data.azuread_application_published_app_ids.well_known.result["MicrosoftGraph"]
+  count     = local.needs_api_access ? 1 : 0
+  client_id = data.azuread_application_published_app_ids.well_known[0].result["MicrosoftGraph"]
 }
 
 # Generate a random ID to ensure unique naming for Azure resources.
@@ -190,11 +195,11 @@ resource "azuread_application_api_access" "msgraph" {
   count = local.needs_api_access ? 1 : 0
 
   application_id = azuread_application.this[0].id
-  api_client_id  = data.azuread_application_published_app_ids.well_known.result["MicrosoftGraph"]
+  api_client_id  = data.azuread_application_published_app_ids.well_known[0].result["MicrosoftGraph"]
 
   role_ids = [
     for role in var.azure_application_msgraph_roles :
-    data.azuread_service_principal.msgraph.app_role_ids[role]
+    data.azuread_service_principal.msgraph[0].app_role_ids[role]
   ]
 }
 
