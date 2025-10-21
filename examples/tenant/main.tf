@@ -52,17 +52,31 @@ module "upwind_integration_azure_onboarding" {
   # Choose one of the following options (uncomment and modify as needed):
 
   # Option 1: Use the tenant root management group only (default behavior).
-  azure_tenant_id       = local.azure_tenant_id
-  apply_to_child_groups = false
+  azure_tenant_id = local.azure_tenant_id
 
-  # Option 2: Use all child management groups within the tenant.
-  # azure_tenant_id        = local.azure_tenant_id
-  # apply_to_child_groups   = true
-
-  # Option 3: Use specific management group IDs.
+  # Option 2: Use specific management group IDs.
   # azure_management_group_ids = [
   #   "custom-management-group-id"
   # ]
+
+  # Additional option 1: Specify subscriptions to include.
+  cloudapi_include_subscriptions = [
+    "a9c07ec5-380c-4ca0-8767-09d16acfd87a",
+  ]
+
+  cloudscanner_include_subscriptions = [
+    "a9c07ec5-380c-4ca0-8767-09d16acfd87a",
+  ]
+
+  # Additional option 2: Specify subscriptions to exclude.
+  cloudapi_exclude_subscriptions = [
+    "6703683f-8798-4a2d-8705-56738b445911",
+  ]
+
+  cloudscanner_exclude_subscriptions = [
+    "6703683f-8798-4a2d-8705-56738b445911",
+  ]
+
 
   # Optional configuration.
   resource_suffix             = "example"

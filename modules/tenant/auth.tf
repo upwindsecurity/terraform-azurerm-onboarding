@@ -1,5 +1,14 @@
 locals {
-  upwind_access_token = try(jsondecode(data.http.upwind_get_access_token_request.response_body).access_token, null)
+  upwind_access_token = sensitive(
+    try(
+      jsondecode(
+        data.http.upwind_get_access_token_request.response_body
+      ).access_token,
+      null
+    )
+  )
+  upwind_auth_endpoint        = var.upwind_region == "us" ? var.upwind_auth_endpoint : replace(var.upwind_auth_endpoint, ".upwind.", format(".%s.upwind.", var.upwind_region))
+  upwind_integration_endpoint = var.upwind_region == "us" ? var.upwind_integration_endpoint : replace(var.upwind_integration_endpoint, ".upwind.", format(".%s.upwind.", var.upwind_region))
 }
 
 data "http" "upwind_get_access_token_request" {
@@ -7,10 +16,7 @@ data "http" "upwind_get_access_token_request" {
 
   url = format(
     "%s/oauth/token",
-    var.upwind_region == "us" ? var.upwind_auth_endpoint :
-    var.upwind_region == "eu" ? replace(var.upwind_auth_endpoint, ".upwind.", ".eu.upwind.") :
-    var.upwind_region == "me" ? replace(var.upwind_auth_endpoint, ".upwind.", ".me.upwind.") :
-    var.upwind_auth_endpoint
+    local.upwind_auth_endpoint
   )
 
   request_headers = {
@@ -19,11 +25,7 @@ data "http" "upwind_get_access_token_request" {
 
   request_body = join("&", [
     "grant_type=client_credentials",
-    format("audience=%s", var.upwind_region == "us" ? var.upwind_integration_endpoint :
-      var.upwind_region == "eu" ? replace(var.upwind_integration_endpoint, ".upwind.", ".eu.upwind.") :
-      var.upwind_region == "me" ? replace(var.upwind_integration_endpoint, ".upwind.", ".me.upwind.") :
-      var.upwind_integration_endpoint
-    ),
+    format("audience=%s", local.upwind_integration_endpoint),
     "client_id=${var.upwind_client_id}",
     "client_secret=${var.upwind_client_secret}",
   ])

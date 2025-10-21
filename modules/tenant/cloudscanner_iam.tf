@@ -51,7 +51,7 @@ resource "time_sleep" "deployer_role_definition_wait" {
 resource "azurerm_role_assignment" "deployer" {
   count              = local.cloudscanner_enabled ? 1 : 0
   role_definition_id = azurerm_role_definition.deployer[0].role_definition_resource_id
-  principal_id       = azuread_service_principal.this.object_id
+  principal_id       = local.service_principal_object_id
   scope              = local.orchestrator_subscription_scope
   depends_on         = [time_sleep.deployer_role_definition_wait[0]]
 }
@@ -65,6 +65,7 @@ resource "azurerm_user_assigned_identity" "worker_user_assigned_identity" {
   resource_group_name = azurerm_resource_group.orgwide_resource_group[0].name
   location            = azurerm_resource_group.orgwide_resource_group[0].location
   name                = "upwind-cs-vmss-identity-${var.upwind_organization_id}"
+  tags                = var.tags
 }
 
 resource "azurerm_role_definition" "cloudscanner_worker" {
@@ -80,12 +81,20 @@ resource "azurerm_role_definition" "cloudscanner_worker" {
       "Microsoft.Compute/disks/read",
       "Microsoft.Compute/disks/write",
       "Microsoft.Compute/disks/delete",
+      "Microsoft.Compute/disks/beginGetAccess/action",
       # Required for reencrypting CMK encrypted disks
       "Microsoft.Compute/diskEncryptionSets/read",
       # Following roles are required for attaching / detaching disks to VMSS instances
+      "Microsoft.Compute/virtualMachines/instanceView/read",
+      "Microsoft.Compute/virtualMachines/read",
+      "Microsoft.Compute/virtualMachineScaleSets/read",
+      "Microsoft.Compute/virtualMachineScaleSets/instanceView/read",
+      "Microsoft.Compute/virtualMachineScaleSets/virtualMachines/read",
+      "Microsoft.Compute/virtualMachineScaleSets/virtualMachines/instanceView/read",
       "Microsoft.Compute/virtualMachineScaleSets/virtualMachines/attachDetachDataDisks/action",
       "Microsoft.Compute/virtualMachineScaleSets/virtualMachines/write",
-      "Microsoft.Network/virtualNetworks/subnets/join/action"
+      # Required for worker VMs to join subnets
+      "Microsoft.Network/virtualNetworks/subnets/join/action",
     ]
   }
 }
@@ -125,6 +134,7 @@ resource "azurerm_user_assigned_identity" "scaler_user_assigned_identity" {
   resource_group_name = azurerm_resource_group.orgwide_resource_group[0].name
   location            = azurerm_resource_group.orgwide_resource_group[0].location
   name                = "upwind-cs-scaler-function-identity-${var.upwind_organization_id}"
+  tags                = var.tags
 }
 
 resource "azurerm_role_definition" "cloudscanner_scaler" {
@@ -181,6 +191,7 @@ resource "azurerm_user_assigned_identity" "key_vault_access" {
   resource_group_name = azurerm_resource_group.orgwide_resource_group[0].name
   location            = azurerm_resource_group.orgwide_resource_group[0].location
   name                = "upwind-cs-disk-encryption-identity-${var.upwind_organization_id}"
+  tags                = var.tags
 }
 
 # Assign the "Key Vault Crypto Service Encryption User" role to the Azure Disk Encryption set
