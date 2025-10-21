@@ -163,12 +163,6 @@ resource "random_id" "rid" {
   byte_length = 4
 }
 
-# Data source for existing application (when provided)
-data "azuread_application" "existing" {
-  count     = local.create_new_application ? 0 : 1
-  client_id = var.azure_application_client_id
-}
-
 # Create an Azure AD application with the required permissions (only when not using existing).
 resource "azuread_application" "this" {
   count        = local.create_new_application ? 1 : 0
