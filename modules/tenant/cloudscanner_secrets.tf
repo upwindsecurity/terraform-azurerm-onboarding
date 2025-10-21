@@ -16,10 +16,29 @@ resource "azurerm_key_vault" "orgwide_key_vault" {
   tenant_id                 = data.azurerm_subscription.orchestrator.tenant_id
   sku_name                  = "standard"
   enable_rbac_authorization = true
-  tags = {
-    "UpwindComponent" = "CloudScanner"
-    "UpwindOrgId"     = var.upwind_organization_id
+
+  # Deny public access if key_vault_deny_traffic is true
+  dynamic "network_acls" {
+    for_each = var.key_vault_deny_traffic ? [1] : []
+    content {
+      default_action = "Deny"                 # Block all access by default
+      bypass         = "AzureServices"        # Allow trusted Microsoft services (Container Apps, etc.)
+      ip_rules       = var.key_vault_ip_rules # IP addresses or CIDR blocks that should be able to access the Key Vault
+    }
   }
+
+  tags = merge(var.tags, {
+    "UpwindComponent"  = "CloudScanner"
+    "UpwindOrgId"      = var.upwind_organization_id
+    "DenyPublicAccess" = var.key_vault_deny_traffic ? "true" : "false"
+  })
+}
+
+# Create private DNS zone for Key Vault, dns links will be added per cloudscanner deployment
+resource "azurerm_private_dns_zone" "orgwide_keyvault_dns_zone" {
+  count               = local.cloudscanner_enabled && var.key_vault_deny_traffic ? 1 : 0
+  name                = "privatelink.vaultcore.azure.net"
+  resource_group_name = azurerm_resource_group.orgwide_resource_group[0].name
 }
 
 resource "azurerm_role_assignment" "kv_admin" {
@@ -50,6 +69,7 @@ resource "azurerm_key_vault_secret" "scanner_client_id" {
   value        = var.scanner_client_id
   key_vault_id = azurerm_key_vault.orgwide_key_vault[0].id
   depends_on   = [azurerm_role_assignment.kv_admin]
+  tags         = var.tags
 }
 
 resource "azurerm_key_vault_secret" "scanner_client_secret" {
@@ -58,4 +78,5 @@ resource "azurerm_key_vault_secret" "scanner_client_secret" {
   value        = var.scanner_client_secret
   key_vault_id = azurerm_key_vault.orgwide_key_vault[0].id
   depends_on   = [azurerm_role_assignment.kv_admin]
+  tags         = var.tags
 }

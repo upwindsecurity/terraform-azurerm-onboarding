@@ -12,6 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * **AG-3539:** allowing opt out of function scanning ([#7](https://github.com/upwindsecurity/terraform-azurerm-onboarding/issues/7)) ([63a79c9](https://github.com/upwindsecurity/terraform-azurerm-onboarding/commit/63a79c96acb4cd8e6c37e93e46c6ad26fb80862e))
 
+## [1.1.1](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.1.0...v1.1.1) (2025-08-12)
+
+### Bug Fixes
+
+* **AG-3472:** allow omission of scanner credentials - skip cloudscanner in those cases ([#5](https://github.com/upwindsecurity/terraform-azurerm-onboarding/issues/5)) ([5bf4633](https://github.com/upwindsecurity/terraform-azurerm-onboarding/commit/5bf46339eb3c10219e18a7d4b0d27a709f07a952))
+
 ## [1.1.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.0.0...v1.1.0) (2025-07-18)
 
 ### Features

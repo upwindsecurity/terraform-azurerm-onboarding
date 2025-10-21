@@ -10,23 +10,23 @@ output "azure_tenant_id" {
 
 output "azure_application_name" {
   description = "The display name for the Azure AD application."
-  value       = local.app_name
+  value       = local.create_new_application ? local.app_name : var.azure_application_client_id
 }
 
 output "azure_application_client_id" {
   description = "The unique identifier for the Azure AD application (client)."
-  value       = azuread_application.this.client_id
+  value       = local.create_new_application ? azuread_application.this[0].client_id : var.azure_application_client_id
 }
 
 output "azure_application_client_secret" {
   description = "The client secret for the Azure AD application."
-  value       = azuread_application_password.client_secret.value
+  value       = local.create_new_application ? azuread_application_password.client_secret[0].value : ""
   sensitive   = true
 }
 
 output "azure_service_principal_id" {
   description = "The unique identifier for the Azure AD service principal."
-  value       = azuread_service_principal.this.object_id
+  value       = local.service_principal_object_id
 }
 
 output "organizational_credentials" {
