@@ -69,7 +69,7 @@ variable "azure_management_group_ids" {
 }
 
 variable "azure_application_client_id" {
-  description = "Optional client ID of an existing Azure AD application. If provided, the module will use this existing application instead of creating a new one. Mutually exclusive with azure_application_name_prefix."
+  description = "Optional client ID of an existing Azure AD application. If provided, the module will use this existing application instead of creating a new one. Mutually exclusive with azure_application_name_prefix. MSGraph permissions need to be configured manually for the existing application."
   type        = string
   default     = null
 
