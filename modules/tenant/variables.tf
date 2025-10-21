@@ -66,11 +66,6 @@ variable "azure_management_group_ids" {
   description = "List of management group names (not full resource IDs) to grant read access to. For example, use 'upwindsecurity-sandbox' instead of '/providers/Microsoft.Management/managementGroups/upwindsecurity-sandbox'. This variable is mutually exclusive with `azure_include_all_subscriptions` and `azure_include_subscription_ids`, and it takes precedence if both sets of variables are provided."
   type        = list(string)
   default     = []
-
-  validation {
-    condition     = length(var.azure_management_group_ids) <= 1
-    error_message = "Only one management group ID is supported for organizational onboarding."
-  }
 }
 
 variable "azure_application_client_id" {
@@ -107,6 +102,9 @@ variable "azure_application_msgraph_roles" {
   description = "List of Microsoft Graph API roles that should be granted to the Azure AD application. These permissions are required for platform functionality and will be applied to both new and existing applications."
   type        = list(string)
   default = [
+    "User.Read.All",
+    "Group.Read.All",
+    "RoleManagement.Read.All",
     "Directory.Read.All",
     "Policy.Read.All",
     "UserAuthenticationMethod.Read.All",
@@ -143,7 +141,6 @@ variable "azure_custom_role_permissions" {
   description = "List of custom permissions that should be granted to the service principal through a custom role."
   type        = list(string)
   default = [
-    "Microsoft.Web/sites/host/listkeys/action",
     "Microsoft.Web/sites/config/list/Action",
   ]
 }
@@ -218,6 +215,18 @@ variable "tags" {
   description = "Tags to apply to all resources."
   type        = map(string)
   default     = {}
+}
+
+variable "key_vault_deny_traffic" {
+  type        = bool
+  description = "Whether to deny traffic to the Key Vault using network ACLs. When true, only trusted Azure services and allowed IPs can access the vault."
+  default     = false
+}
+
+variable "key_vault_ip_rules" {
+  type        = list(string)
+  description = "One or more IP Addresses, or CIDR Blocks which should be able to access the Key Vault. This is only relevant if key_vault_deny_traffic is set to true."
+  default     = []
 }
 
 # endregion general

@@ -17,7 +17,9 @@ locals {
   }
 
   # Tenant IDs to onboard - kept as an array for future compatibility to multiple tenants
-  tenant_ids = var.azure_tenant_id != "" ? [var.azure_tenant_id] : [local.management_group_ids[0]]
+  # When azure_tenant_id is provided, use it directly
+  # Otherwise, derive it from the orchestrator subscription's tenant
+  tenant_ids = var.azure_tenant_id != "" ? [var.azure_tenant_id] : [data.azurerm_subscription.orchestrator.tenant_id]
 
   # Gather tenant IDs pending onboarding, i.e. those that do not have existing credentials
   pending_tenants = [
@@ -27,7 +29,7 @@ locals {
 
   # Determine effective scopes for service principal role assignments
   # Use cloudapi include/exclude subscription logic or fall back to organizational scope
-  effective_scopes = length(var.cloudapi_include_subscriptions) > 0 ? [
+  base_effective_scopes = length(var.cloudapi_include_subscriptions) > 0 ? [
     for sub_id in var.cloudapi_include_subscriptions :
     "/subscriptions/${sub_id}"
     ] : (
@@ -36,6 +38,35 @@ locals {
       "/subscriptions/${sub.subscription_id}"
       if !contains(var.cloudapi_exclude_subscriptions, sub.subscription_id)
     ] : local.normalized_management_group_ids
+  )
+
+  orchestrator_subscription_scope = "/subscriptions/${var.azure_orchestrator_subscription_id}"
+  using_sub_management_group      = var.azure_tenant_id == "" && length(var.azure_management_group_ids) > 0
+
+  # Determine final effective scopes with orchestrator subscription handling:
+  #
+  # Scenario 1: Root tenant management group (azure_tenant_id is set)
+  #   - Use the tenant root scope only
+  #   - Don't add orchestrator subscription separately (already covered by tenant root)
+  #
+  # Scenario 2: Sub-management group (azure_management_group_ids is set, azure_tenant_id is empty)
+  #   - Use the sub-management group scope
+  #   - Add orchestrator subscription explicitly (may not be in the sub-management group hierarchy)
+  #
+  # Scenario 3: Explicit include/exclude subscription lists
+  #   - Use the computed subscription list
+  #   - Add orchestrator subscription only if not already in the list
+  effective_scopes = (
+    length(var.cloudapi_include_subscriptions) == 0 &&
+    length(var.cloudapi_exclude_subscriptions) == 0 &&
+    local.using_sub_management_group
+    ) ? concat(local.base_effective_scopes, [local.orchestrator_subscription_scope]) : (
+    # For include/exclude lists, only add orchestrator if not already present
+    length(var.cloudapi_include_subscriptions) > 0 || length(var.cloudapi_exclude_subscriptions) > 0 ?
+    (!contains(local.base_effective_scopes, local.orchestrator_subscription_scope) ?
+      concat(local.base_effective_scopes, [local.orchestrator_subscription_scope]) :
+      local.base_effective_scopes
+    ) : local.base_effective_scopes
   )
 
   # Construct a map of role assignments using combinations of scopes and built-in roles.
@@ -108,11 +139,16 @@ data "azurerm_subscription" "orchestrator" {
 }
 
 # Retrieve application IDs for APIs published by Microsoft.
-data "azuread_application_published_app_ids" "well_known" {}
+# Only needed when creating a new application and adding Graph roles
+data "azuread_application_published_app_ids" "well_known" {
+  count = local.needs_api_access ? 1 : 0
+}
 
 # Retrieve the Microsoft Graph service principal details.
+# Only needed when creating a new application and adding Graph roles
 data "azuread_service_principal" "msgraph" {
-  client_id = data.azuread_application_published_app_ids.well_known.result["MicrosoftGraph"]
+  count     = local.needs_api_access ? 1 : 0
+  client_id = data.azuread_application_published_app_ids.well_known[0].result["MicrosoftGraph"]
 }
 
 # Generate a random ID to ensure unique naming for Azure resources.
@@ -125,12 +161,6 @@ resource "random_id" "rid" {
   for_each = local.custom_role_assignments
 
   byte_length = 4
-}
-
-# Data source for existing application (when provided)
-data "azuread_application" "existing" {
-  count     = local.create_new_application ? 0 : 1
-  client_id = var.azure_application_client_id
 }
 
 # Create an Azure AD application with the required permissions (only when not using existing).
@@ -159,11 +189,11 @@ resource "azuread_application_api_access" "msgraph" {
   count = local.needs_api_access ? 1 : 0
 
   application_id = azuread_application.this[0].id
-  api_client_id  = data.azuread_application_published_app_ids.well_known.result["MicrosoftGraph"]
+  api_client_id  = data.azuread_application_published_app_ids.well_known[0].result["MicrosoftGraph"]
 
   role_ids = [
     for role in var.azure_application_msgraph_roles :
-    data.azuread_service_principal.msgraph.app_role_ids[role]
+    data.azuread_service_principal.msgraph[0].app_role_ids[role]
   ]
 }
 
