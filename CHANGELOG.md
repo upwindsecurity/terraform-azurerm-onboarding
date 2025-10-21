@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.3.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.2.0...v1.3.0) (2025-08-22)
+
+### Features
+
+* **AG-3550:** allow include/exclude subscriptions for cloudapi and cloudscanner ([#12](https://github.com/upwindsecurity/terraform-azurerm-onboarding/issues/12)) ([e0f1357](https://github.com/upwindsecurity/terraform-azurerm-onboarding/commit/e0f1357ce8e9994234fdd396f9cace1219195141))
+
 ## [1.2.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.1.1...v1.2.0) (2025-08-20)
 
 ### Features
