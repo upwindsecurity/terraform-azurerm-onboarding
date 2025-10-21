@@ -10,12 +10,12 @@ output "azure_tenant_id" {
 
 output "azure_application_name" {
   description = "The display name for the Azure AD application."
-  value       = local.create_new_application ? local.app_name : data.azuread_application.existing[0].display_name
+  value       = local.create_new_application ? local.app_name : var.azure_application_client_id
 }
 
 output "azure_application_client_id" {
   description = "The unique identifier for the Azure AD application (client)."
-  value       = local.application_client_id
+  value       = local.create_new_application ? azuread_application.this[0].client_id : var.azure_application_client_id
 }
 
 output "azure_application_client_secret" {
