@@ -116,10 +116,16 @@ resource "azurerm_role_assignment" "cloudscanner_worker" {
   depends_on         = [time_sleep.cloudscanner_worker_role_definition_wait[0]]
 }
 
-# Assign Storage Blob Data Reader role to the worker identity in each management group
+# Assign Storage Blob Data Reader role to the worker identity
 # Because this is a data action permission, we can't include this in a custom role definition and assign it at a management group scope.
+# If function_storage_accounts is provided, assign to specific storage accounts only.
+# Otherwise, assign to all resources in cloudscanner scope.
 resource "azurerm_role_assignment" "storage_reader" {
-  for_each             = (local.cloudscanner_enabled && !var.disable_function_scanning) ? toset(local.cloudscanner_scopes) : []
+  for_each = (local.cloudscanner_enabled && !var.disable_function_scanning) ? (
+    length(var.function_storage_accounts) > 0 ?
+    toset(var.function_storage_accounts) :
+    toset(local.cloudscanner_scopes)
+  ) : []
   role_definition_name = "Storage Blob Data Reader"
   principal_id         = azurerm_user_assigned_identity.worker_user_assigned_identity[0].principal_id
   scope                = each.value
