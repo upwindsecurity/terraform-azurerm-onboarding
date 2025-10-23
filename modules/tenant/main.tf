@@ -118,7 +118,7 @@ locals {
   create_credentials = length(local.pending_tenants) > 0 && var.create_organizational_credentials
 
   # Get the service principal object ID (from either new or existing)
-  service_principal_object_id = local.create_new_application ? azuread_service_principal.this[0].object_id : data.azuread_service_principal.existing[0].object_id
+  service_principal_object_id = local.create_new_application ? azuread_service_principal.this[0].object_id : var.azure_application_service_principal_object_id != null ? var.azure_application_service_principal_object_id : data.azuread_service_principal.existing[0].object_id
 
   # Get the application client ID (from either new or existing)
   application_client_id = local.create_new_application ? azuread_application.this[0].client_id : var.azure_application_client_id
@@ -198,8 +198,10 @@ resource "azuread_application_api_access" "msgraph" {
 }
 
 # Data source for existing service principal (when using existing app)
+# Skipped if a service principal object ID is provided
+# This is useful when MSGraph permissions cannot be configured for the TF runner App Registration
 data "azuread_service_principal" "existing" {
-  count     = local.create_new_application ? 0 : 1
+  count     = local.create_new_application || var.azure_application_service_principal_object_id != null ? 0 : 1
   client_id = var.azure_application_client_id
 }
 
@@ -322,7 +324,7 @@ data "http" "upwind_create_organizational_credentials_request" {
           "subscription_id" = var.azure_orchestrator_subscription_id
         },
         "spec" = {
-          "tenant_id"     = local.create_new_application ? azuread_service_principal.this[0].application_tenant_id : data.azuread_service_principal.existing[0].application_tenant_id
+          "tenant_id"     = each.value
           "client_id"     = local.application_client_id
           "client_secret" = local.create_new_application ? azuread_application_password.client_secret[0].value : var.azure_application_client_secret
         }
