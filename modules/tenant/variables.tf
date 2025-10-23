@@ -196,6 +196,12 @@ variable "cloudscanner_exclude_subscriptions" {
   default     = []
 }
 
+variable "function_storage_accounts" {
+  description = "Optional list of storage account resource IDs used by Function Apps. If provided, Storage Blob Data Reader role will only be assigned to these specific storage accounts instead of all resources in scope. Use the list-function-storage-accounts.sh script to discover these. Example: [\"/subscriptions/{sub-id}/resourceGroups/{rg}/providers/Microsoft.Storage/storageAccounts/{name}\"]"
+  type        = list(string)
+  default     = []
+}
+
 # endregion azure
 
 # region general
