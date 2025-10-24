@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.5.6](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.5.5...v1.5.6) (2025-10-24)
+
+### Bug Fixes
+
+* **AG-3921:** adding optional azure_application_service_principal_object_id variable ([#32](https://github.com/upwindsecurity/terraform-azurerm-onboarding/issues/32)) ([aff7677](https://github.com/upwindsecurity/terraform-azurerm-onboarding/commit/aff76779cd105c3ddd5731072d1f4d06db6ff479))
+
 ## [1.3.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.2.0...v1.3.0) (2025-08-22)
 
 ### Features
