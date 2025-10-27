@@ -288,9 +288,37 @@ data "http" "upwind_get_organizational_credentials_request" {
   }
 }
 
-# Wait for the builtin role assignments to be created
-resource "time_sleep" "builtin_role_assignment_wait" {
-  depends_on      = [azurerm_role_assignment.builtin]
+# Marker resource to ensure all infrastructure is ready before posting credentials
+# This acts as a completion gate for all role assignments and critical resources
+resource "null_resource" "infrastructure_ready" {
+  depends_on = [
+    # Role assignments
+    azurerm_role_assignment.builtin,
+    azurerm_role_assignment.custom,
+    azurerm_role_assignment.deployer,
+    azurerm_role_assignment.cloudscanner_worker,
+    azurerm_role_assignment.cloudscanner_scaler,
+    azurerm_role_assignment.storage_reader,
+    azurerm_role_assignment.target_role_assignment,
+    azurerm_role_assignment.disk_encryption_key_vault_access,
+    azurerm_role_assignment.kv_admin,
+    azurerm_role_assignment.kv_secrets_worker,
+    azurerm_role_assignment.kv_secrets_scaler,
+    # Key Vault and secrets (required for CloudScanner deployment)
+    azurerm_key_vault.orgwide_key_vault,
+    azurerm_key_vault_secret.scanner_client_id,
+    azurerm_key_vault_secret.scanner_client_secret,
+  ]
+
+  triggers = {
+    # Force recreation if any role assignment changes
+    timestamp = timestamp()
+  }
+}
+
+# Wait for role assignments to propagate in Azure
+resource "time_sleep" "role_propagation_wait" {
+  depends_on      = [null_resource.infrastructure_ready]
   create_duration = var.azure_role_definition_wait_time
 }
 
@@ -299,9 +327,11 @@ resource "time_sleep" "builtin_role_assignment_wait" {
 data "http" "upwind_create_organizational_credentials_request" {
   for_each = local.create_credentials ? toset(local.pending_tenants) : []
 
-  # the built in role assignments need to be created before the cloud credentials can be created
-  # the integration API validates Reader access on the management group
-  depends_on = [time_sleep.builtin_role_assignment_wait]
+  # Wait for all infrastructure to be ready and role assignments to propagate
+  # The integration API validates Reader access on the management group
+  depends_on = [
+    time_sleep.role_propagation_wait,
+  ]
 
   method = "POST"
   url = format(
