@@ -9,13 +9,13 @@ locals {
 # Create Azure Key Vault for organization-wide secrets
 # No purge protection because we can just set up new secrets no bother.
 resource "azurerm_key_vault" "orgwide_key_vault" {
-  count                     = local.cloudscanner_enabled ? 1 : 0
-  name                      = local.key_vault_name
-  location                  = azurerm_resource_group.orgwide_resource_group[0].location
-  resource_group_name       = azurerm_resource_group.orgwide_resource_group[0].name
-  tenant_id                 = data.azurerm_subscription.orchestrator.tenant_id
-  sku_name                  = "standard"
-  enable_rbac_authorization = true
+  count                      = local.cloudscanner_enabled ? 1 : 0
+  name                       = local.key_vault_name
+  location                   = azurerm_resource_group.orgwide_resource_group[0].location
+  resource_group_name        = azurerm_resource_group.orgwide_resource_group[0].name
+  tenant_id                  = data.azurerm_subscription.orchestrator.tenant_id
+  sku_name                   = "standard"
+  rbac_authorization_enabled = true
 
   # Deny public access if key_vault_deny_traffic is true
   dynamic "network_acls" {
