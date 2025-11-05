@@ -7,8 +7,9 @@ terraform {
       version = ">= 2.53"
     }
     azurerm = {
-      source  = "hashicorp/azurerm"
-      version = ">= 4.0"
+      source = "hashicorp/azurerm"
+      # Required for non deprecated field name, rbac_authorization_enabled of keyvault
+      version = ">= 4.42"
     }
     http = {
       source  = "hashicorp/http"
