@@ -34,7 +34,7 @@ output "organizational_credentials" {
   description = "The Upwind organizational credentials that were created to onboard the Azure tenant."
 }
 
-output "pending_tenants" {
-  value       = local.pending_tenants
-  description = "The list of management groups that are pending onboarding."
+output "pending_tenant" {
+  value       = local.pending_tenant
+  description = "The tenant ID that is pending onboarding, or null if already onboarded."
 }
