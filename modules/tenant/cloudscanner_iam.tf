@@ -4,6 +4,11 @@ locals {
   resource_suffix = format("%s%s", var.upwind_organization_id, var.resource_suffix)
 
   # Determine cloudscanner role assignment scopes based on include/exclude subscription parameters
+  # Priority logic:
+  # 1. If include list is provided: use only those subscriptions (overrides management groups)
+  # 2. If exclude list is provided: expand to subscription-level assignments, excluding specified ones
+  #    - This allows combining with management groups by filtering all tenant subscriptions
+  # 3. Otherwise: use management group scopes (or tenant root if azure_tenant_id is set)
   cloudscanner_scopes = length(var.cloudscanner_include_subscriptions) > 0 ? [
     for sub_id in var.cloudscanner_include_subscriptions :
     "/subscriptions/${sub_id}"

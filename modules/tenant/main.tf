@@ -16,19 +16,20 @@ locals {
     lower(cc.azureOrganizationId) => true
   }
 
-  # Tenant IDs to onboard - kept as an array for future compatibility to multiple tenants
+  # Tenant ID to onboard - single tenant approach
   # When azure_tenant_id is provided, use it directly
   # Otherwise, derive it from the orchestrator subscription's tenant
-  tenant_ids = var.azure_tenant_id != "" ? [var.azure_tenant_id] : [data.azurerm_subscription.orchestrator.tenant_id]
+  tenant_id = var.azure_tenant_id != "" ? var.azure_tenant_id : data.azurerm_subscription.orchestrator.tenant_id
 
-  # Gather tenant IDs pending onboarding, i.e. those that do not have existing credentials
-  pending_tenants = [
-    for tenant_id in local.tenant_ids : tenant_id
-    if lookup(local.organizational_credentials, tenant_id, false) == false
-  ]
+  # Determine if this tenant is pending onboarding (does not have existing credentials)
+  pending_tenant = lookup(local.organizational_credentials, local.tenant_id, false) == false ? local.tenant_id : null
 
   # Determine effective scopes for service principal role assignments
-  # Use cloudapi include/exclude subscription logic or fall back to organizational scope
+  # Priority logic:
+  # 1. If include list is provided: use only those subscriptions (overrides management groups)
+  # 2. If exclude list is provided: expand to subscription-level assignments, excluding specified ones
+  #    - This allows combining with management groups by filtering all tenant subscriptions
+  # 3. Otherwise: use management group scopes (or tenant root if azure_tenant_id is set)
   base_effective_scopes = length(var.cloudapi_include_subscriptions) > 0 ? [
     for sub_id in var.cloudapi_include_subscriptions :
     "/subscriptions/${sub_id}"
@@ -114,8 +115,8 @@ locals {
     random_id.uid.hex,
   )
 
-  # Only create credentials if there are pending tenants and we're not in destroy mode
-  create_credentials = length(local.pending_tenants) > 0 && var.create_organizational_credentials
+  # Only create credentials if there is a pending tenant and we're not in destroy mode
+  create_credentials = local.pending_tenant != null && var.create_organizational_credentials
 
   # Get the service principal object ID (from either new or existing)
   service_principal_object_id = local.create_new_application ? azuread_service_principal.this[0].object_id : var.azure_application_service_principal_object_id != null ? var.azure_application_service_principal_object_id : data.azuread_service_principal.existing[0].object_id
@@ -294,10 +295,10 @@ resource "time_sleep" "builtin_role_assignment_wait" {
   create_duration = var.azure_role_definition_wait_time
 }
 
-# Post the cloud credentials for organizational onboarding for management groups pending onboarding.
+# Post the cloud credentials for organizational onboarding for the pending tenant.
 # tflint-ignore: terraform_unused_declarations
 data "http" "upwind_create_organizational_credentials_request" {
-  for_each = local.create_credentials ? toset(local.pending_tenants) : []
+  count = local.create_credentials ? 1 : 0
 
   # the built in role assignments need to be created before the cloud credentials can be created
   # the integration API validates Reader access on the management group
@@ -317,14 +318,14 @@ data "http" "upwind_create_organizational_credentials_request" {
 
   request_body = jsonencode(
     {
-      "azure_organization_id" = each.value
+      "azure_organization_id" = local.pending_tenant
       "create_credentials_request" = {
         "provider" = {
           "name"            = "azure",
           "subscription_id" = var.azure_orchestrator_subscription_id
         },
         "spec" = {
-          "tenant_id"     = each.value
+          "tenant_id"     = local.pending_tenant
           "client_id"     = local.application_client_id
           "client_secret" = local.create_new_application ? azuread_application_password.client_secret[0].value : var.azure_application_client_secret
         }
