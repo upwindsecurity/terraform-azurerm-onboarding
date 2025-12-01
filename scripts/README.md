@@ -1,18 +1,20 @@
-# Azure Function App Storage Account Discovery
+# Azure Onboarding Scripts
 
-## Overview
+## Azure Function App Storage Account Discovery
+
+### Overview
 
 This script helps identify which Azure Storage Accounts are used by your Function Apps. This is useful when you want to
 limit the scope of the `Storage Blob Data Reader` role assignment for Upwind CloudScanner instead of granting it to all
 resources in your management group or subscription.
 
-## Why This Matters
+### Why This Matters
 
 By default, Upwind CloudScanner needs `Storage Blob Data Reader` access to scan Function App code (which is stored in
 Azure Storage Blobs). However, some customers prefer to limit this access to only the storage accounts that actually
 contain Function App code, rather than granting it broadly.
 
-## Prerequisites
+### Prerequisites
 
 - Azure CLI installed and configured
 - Appropriate permissions to:
@@ -20,9 +22,9 @@ contain Function App code, rather than granting it broadly.
   - Read Function App configuration
   - List Storage Accounts
 
-## Usage
+### Usage
 
-### Basic Usage
+#### Basic Usage
 
 ```bash
 ./list-function-storage-accounts.sh
@@ -80,9 +82,9 @@ Storage Account Resource IDs:
   /subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/rg-functions/providers/Microsoft.Storage/storageAccounts/workerfuncsa789
 ```
 
-## Using the Results with Terraform
+### Using the Results with Terraform
 
-### Option 1: Provide Storage Account List (Recommended for Security-Conscious Customers)
+#### Option 1: Provide Storage Account List (Recommended for Security-Conscious Customers)
 
 After running the script, add the discovered storage accounts to your Terraform configuration:
 
@@ -113,7 +115,7 @@ module "upwind_integration_azure_onboarding" {
 - ⚠️ Must be updated when Function Apps are added/removed
 - ⚠️ New Function Apps won't be scanned until the list is updated
 
-### Option 2: Disable Function Scanning (If Not Needed)
+#### Option 2: Disable Function Scanning (If Not Needed)
 
 If you don't need to scan Function Apps at all:
 
@@ -128,7 +130,7 @@ module "upwind_integration_azure_onboarding" {
 }
 ```
 
-### Option 3: Broad Access (Default Behavior)
+#### Option 3: Broad Access (Default Behavior)
 
 If you're comfortable with broader access, the default behavior grants `Storage Blob Data Reader` to all resources in scope:
 
@@ -142,9 +144,9 @@ module "upwind_integration_azure_onboarding" {
 }
 ```
 
-## Troubleshooting
+### Troubleshooting
 
-### No Function Apps Found
+#### No Function Apps Found
 
 If the script reports no Function Apps:
 
@@ -152,7 +154,7 @@ If the script reports no Function Apps:
 - Ensure you have permissions to list Function Apps
 - Check if Function Apps exist in the selected scope
 
-### Storage Account Not Found
+#### Storage Account Not Found
 
 If a Function App's storage account cannot be found:
 
@@ -160,14 +162,14 @@ If a Function App's storage account cannot be found:
 - The Function App might use a managed identity instead of a connection string
 - The storage account might have been deleted but the Function App still references it
 
-### Permission Errors
+#### Permission Errors
 
 If you encounter permission errors:
 
 - Ensure you have at least `Reader` role on the subscriptions being scanned
 - For management group scans, you need `Reader` at the management group level
 
-## Security Considerations
+### Security Considerations
 
 **Least Privilege Approach:**
 
@@ -181,7 +183,7 @@ If you encounter permission errors:
 - Automatically covers new Function Apps
 - Grants more access than strictly necessary
 
-## Automation
+### Automation
 
 You can automate this script in your CI/CD pipeline:
 
@@ -193,9 +195,27 @@ echo "2" | ./list-function-storage-accounts.sh > storage-accounts.txt
 grep "^  /subscriptions/" storage-accounts.txt > terraform-storage-list.txt
 ```
 
-## Support
+### Support
 
 For issues or questions:
 
 - Open an issue in the repository
 - Contact Upwind support
+
+## Cleanup Role Assignments
+
+This script helps clean up role assignments for a specific service principal. This is useful when you have lost the
+Terraform state of an older Upwind onboarding and need to clean up the role assignments manually.
+
+### Usage
+
+```bash
+./cleanup-role-assignments.sh --client-id 12345678-1234-1234-1234-123456789abc --orchestrator-subscription-id <sub-id>
+```
+
+#### Options
+
+- `--client-id`: Azure AD application client ID (required)
+- `--orchestrator-subscription-id`: Azure orchestrator subscription ID (optional)
+- `--management-group-ids`: Comma-separated list of management group IDs (optional)
+- `--dry-run`: List resources without deleting them
