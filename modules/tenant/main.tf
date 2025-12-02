@@ -333,6 +333,13 @@ data "http" "upwind_create_organizational_credentials_request" {
     }
   )
 
+  # Configure delay between retries in range of 10 and 15 seconds
+  retry {
+    attempts     = 3
+    min_delay_ms = 10000
+    max_delay_ms = 15000
+  }
+
   lifecycle {
     precondition {
       condition     = local.upwind_access_token != null
