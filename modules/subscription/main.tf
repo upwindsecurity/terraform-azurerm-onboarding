@@ -269,6 +269,7 @@ data "http" "upwind_get_cloud_credentials_request" {
     var.upwind_region == "us" ? var.upwind_integration_endpoint :
     var.upwind_region == "eu" ? replace(var.upwind_integration_endpoint, ".upwind.", ".eu.upwind.") :
     var.upwind_region == "me" ? replace(var.upwind_integration_endpoint, ".upwind.", ".me.upwind.") :
+    var.upwind_region == "pdc01" ? replace(var.upwind_integration_endpoint, ".upwind.", ".pdc01.upwind.") :
     var.upwind_integration_endpoint,
     var.upwind_organization_id,
   )
@@ -317,6 +318,7 @@ data "http" "upwind_create_cloud_credentials_request" {
     var.upwind_region == "us" ? var.upwind_integration_endpoint :
     var.upwind_region == "eu" ? replace(var.upwind_integration_endpoint, ".upwind.", ".eu.upwind.") :
     var.upwind_region == "me" ? replace(var.upwind_integration_endpoint, ".upwind.", ".me.upwind.") :
+    var.upwind_region == "pdc01" ? replace(var.upwind_integration_endpoint, ".upwind.", ".pdc01.upwind.") :
     var.upwind_integration_endpoint,
     var.upwind_organization_id,
   )
