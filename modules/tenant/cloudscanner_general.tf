@@ -1,5 +1,8 @@
 locals {
-  cloudscanner_enabled = var.azure_orchestrator_subscription_id != "" && var.scanner_client_id != ""
+  cloudscanner_enabled_sensitive = var.azure_orchestrator_subscription_id != "" && var.scanner_client_id != ""
+
+  # Force remove any sensitive marking - this is safe because the result is just a boolean
+  cloudscanner_enabled = nonsensitive(local.cloudscanner_enabled_sensitive)
 }
 
 # Register the Microsoft.App resource provider which is required for Container Apps
