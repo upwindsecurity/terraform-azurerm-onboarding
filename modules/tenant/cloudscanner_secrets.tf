@@ -16,6 +16,8 @@ resource "azurerm_key_vault" "orgwide_key_vault" {
   tenant_id                  = data.azurerm_subscription.orchestrator.tenant_id
   sku_name                   = "standard"
   rbac_authorization_enabled = true
+  soft_delete_retention_days = 7
+  purge_protection_enabled   = true
 
   # Deny public access if key_vault_deny_traffic is true
   dynamic "network_acls" {
