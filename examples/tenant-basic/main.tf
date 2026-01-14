@@ -14,7 +14,9 @@ provider "azurerm" {
       prevent_deletion_if_contains_resources = false
     }
     key_vault {
-      recover_soft_deleted_keys = true
+      recover_soft_deleted_keys       = true
+      recover_soft_deleted_secrets    = true
+      recover_soft_deleted_key_vaults = true
     }
   }
 }
