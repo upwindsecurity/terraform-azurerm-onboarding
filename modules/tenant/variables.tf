@@ -248,9 +248,10 @@ variable "key_vault_ip_rules" {
 
 # endregion general
 
+# tflint-ignore: terraform_unused_declarations
 variable "skip_app_service_provider_registration" {
   type        = bool
-  description = "Set to true to skip the Microsoft.App provider registration, recommended if running on Windows. If resource_providers_to_register is set to [\"Microsoft.App\"] on the azurerm provider, this can safely be set to true."
+  description = "DEPRECATED: We have removed the need for this variable. Set to true to skip the Microsoft.App provider registration, recommended if running on Windows. If resource_providers_to_register is set to [\"Microsoft.App\"] on the azurerm provider, this can safely be set to true."
   default     = false
 }
 
