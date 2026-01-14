@@ -31,7 +31,7 @@ provider "azuread" {
 # This module sets up the necessary permissions and credentials for Upwind to monitor an entire Azure tenant.
 module "upwind_integration_azure_onboarding" {
   count  = var.create ? 1 : 0 # Conditionally create resources based on the create variable.
-  source = "../../modules/tenant"
+  source = "upwindsecurity/onboarding/azurerm//modules/tenant"
 
   # Upwind organization configuration.
   # Replace these example values with your actual Upwind organization details.
@@ -81,4 +81,13 @@ module "upwind_integration_azure_onboarding" {
   # Optional configuration.
   resource_suffix             = "example"
   azure_cloudscanner_location = "westus"
+
+  # Custom tags applied to all resources
+  tags = {
+    "environment" = "Production"
+    "managed_by"  = "Terraform"
+    "owner"       = "Security-Team"
+    "cost_center" = "IT-Security"
+    "project"     = "Upwind-Integration"
+  }
 }
