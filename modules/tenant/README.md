@@ -23,7 +23,6 @@ seamlessly connect their entire tenant for comprehensive monitoring and security
 | <a name="provider_azuread"></a> [azuread](#provider\_azuread) | 3.6.0 |
 | <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 4.52.0 |
 | <a name="provider_http"></a> [http](#provider\_http) | 3.5.0 |
-| <a name="provider_null"></a> [null](#provider\_null) | 3.2.4 |
 | <a name="provider_random"></a> [random](#provider\_random) | 3.7.2 |
 | <a name="provider_time"></a> [time](#provider\_time) | 0.13.1 |
 
@@ -63,7 +62,6 @@ No modules.
 | [azurerm_user_assigned_identity.key_vault_access](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/user_assigned_identity) | resource |
 | [azurerm_user_assigned_identity.scaler_user_assigned_identity](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/user_assigned_identity) | resource |
 | [azurerm_user_assigned_identity.worker_user_assigned_identity](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/user_assigned_identity) | resource |
-| [null_resource.register_app_service_provider](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) | resource |
 | [random_id.rid](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/id) | resource |
 | [random_id.uid](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/id) | resource |
 | [time_sleep.builtin_role_assignment_wait](https://registry.terraform.io/providers/hashicorp/time/latest/docs/resources/sleep) | resource |
@@ -111,7 +109,7 @@ No modules.
 | <a name="input_resource_suffix"></a> [resource\_suffix](#input\_resource\_suffix) | The suffix to append to all resources created by this module. | `string` | `""` | no |
 | <a name="input_scanner_client_id"></a> [scanner\_client\_id](#input\_scanner\_client\_id) | The client ID used for authentication with the Upwind CloudScanner Service. | `string` | `""` | no |
 | <a name="input_scanner_client_secret"></a> [scanner\_client\_secret](#input\_scanner\_client\_secret) | The client secret for authentication with the Upwind CloudScanner Service. | `string` | `""` | no |
-| <a name="input_skip_app_service_provider_registration"></a> [skip\_app\_service\_provider\_registration](#input\_skip\_app\_service\_provider\_registration) | Set to true to skip the Microsoft.App provider registration, recommended if running on Windows. If resource\_providers\_to\_register is set to ["Microsoft.App"] on the azurerm provider, this can safely be set to true. | `bool` | `false` | no |
+| <a name="input_skip_app_service_provider_registration"></a> [skip\_app\_service\_provider\_registration](#input\_skip\_app\_service\_provider\_registration) | DEPRECATED: We have removed the need for this variable. Set to true to skip the Microsoft.App provider registration, recommended if running on Windows. If resource\_providers\_to\_register is set to ["Microsoft.App"] on the azurerm provider, this can safely be set to true. | `bool` | `false` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags to apply to all resources. | `map(string)` | `{}` | no |
 | <a name="input_upwind_auth_endpoint"></a> [upwind\_auth\_endpoint](#input\_upwind\_auth\_endpoint) | The Authentication API endpoint. | `string` | `"https://auth.upwind.io"` | no |
 | <a name="input_upwind_client_id"></a> [upwind\_client\_id](#input\_upwind\_client\_id) | The client ID used for authentication with the Upwind Authorization Service. | `string` | n/a | yes |
