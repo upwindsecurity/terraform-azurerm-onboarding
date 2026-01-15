@@ -18,15 +18,7 @@ Run `terraform destroy` when you don't need these resources.
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 
-| Name | Version |
-|------|---------|
-| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.2 |
-| <a name="requirement_azuread"></a> [azuread](#requirement\_azuread) | ~> 2.53 |
-| <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | ~> 3.111 |
-| <a name="requirement_http"></a> [http](#requirement\_http) | ~> 3.4 |
-| <a name="requirement_null"></a> [null](#requirement\_null) | ~> 3 |
-| <a name="requirement_random"></a> [random](#requirement\_random) | ~> 3.5 |
-| <a name="requirement_time"></a> [time](#requirement\_time) | ~> 0.8 |
+No requirements.
 
 ## Providers
 
@@ -36,7 +28,7 @@ No providers.
 
 | Name | Source | Version |
 |------|--------|---------|
-| <a name="module_upwind_integration_azure_onboarding"></a> [upwind\_integration\_azure\_onboarding](#module\_upwind\_integration\_azure\_onboarding) | ../../modules/tenant | n/a |
+| <a name="module_upwind_integration_azure_onboarding"></a> [upwind\_integration\_azure\_onboarding](#module\_upwind\_integration\_azure\_onboarding) | upwindsecurity/onboarding/azurerm//modules/tenant | n/a |
 
 ## Resources
 
@@ -58,6 +50,5 @@ No resources.
 | <a name="output_azure_service_principal_id"></a> [azure\_service\_principal\_id](#output\_azure\_service\_principal\_id) | The unique identifier for the Azure AD service principal. |
 | <a name="output_azure_tenant_id"></a> [azure\_tenant\_id](#output\_azure\_tenant\_id) | The unique identifier for the current Azure tenant. |
 | <a name="output_organizational_credentials"></a> [organizational\_credentials](#output\_organizational\_credentials) | The Upwind organizational credentials that were created to onboard the Azure tenant. |
-| <a name="output_pending_tenants"></a> [pending\_tenants](#output\_pending\_tenants) | The list of management groups that are pending onboarding. |
 | <a name="output_upwind_next_step"></a> [upwind\_next\_step](#output\_upwind\_next\_step) | The instructions for the next step in the process. |
 <!-- END_TF_DOCS -->
