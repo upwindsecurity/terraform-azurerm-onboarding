@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.5.5](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.5.4...v1.5.5) (2025-10-23)
+
+### Bug Fixes
+
+* **PE-6656:** provide a way to narrow storage blob data reader access to a list of storage accounts ([#30](https://github.com/upwindsecurity/terraform-azurerm-onboarding/issues/30)) ([d986986](https://github.com/upwindsecurity/terraform-azurerm-onboarding/commit/d98698615c9193a4eb00df62460710df314a9cf5))
+
 ## [1.3.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.2.0...v1.3.0) (2025-08-22)
 
 ### Features
