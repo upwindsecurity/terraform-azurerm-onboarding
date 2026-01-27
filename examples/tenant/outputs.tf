@@ -33,8 +33,3 @@ output "organizational_credentials" {
   description = "The Upwind organizational credentials that were created to onboard the Azure tenant."
   value       = one(module.upwind_integration_azure_onboarding[*].organizational_credentials)
 }
-
-output "pending_tenants" {
-  description = "The list of management groups that are pending onboarding."
-  value       = one(module.upwind_integration_azure_onboarding[*].pending_tenants)
-}
