@@ -256,7 +256,7 @@ variable "skip_app_service_provider_registration" {
 }
 
 variable "create_organizational_credentials" {
-  description = "Set to false to skip sending organizational credentials to Upwind. Intended as a failsafe mechanism, not recommended in production scenarios."
+  description = "Set to false to skip sending organizational credentials to Upwind. This variable should be set to true for onboarding deployments using \"terraform init && terraform apply\" and to false when offboarding using \"terraform destroy\". Remember to reset appropriately for subsequent deploy / destroy attempts."
   type        = bool
   default     = true
 }
