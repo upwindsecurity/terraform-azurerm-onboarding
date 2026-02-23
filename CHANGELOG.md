@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.6.5](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.6.4...v1.6.5) (2026-02-23)
+
+### Bug Fixes
+
+* **AG-4603:** update to azure terraform var description to explain f… ([#54](https://github.com/upwindsecurity/terraform-azurerm-onboarding/issues/54)) ([f3da748](https://github.com/upwindsecurity/terraform-azurerm-onboarding/commit/f3da748aa855a1c8df02e12ceaf871eddf4d010a))
+
 ## [1.3.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.2.0...v1.3.0) (2025-08-22)
 
 ### Features
