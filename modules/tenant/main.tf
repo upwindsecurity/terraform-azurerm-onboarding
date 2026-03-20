@@ -165,18 +165,20 @@ resource "random_id" "rid" {
 }
 
 # Create an Azure AD application with the required permissions (only when not using existing).
-resource "azuread_application" "this" {
+resource "azuread_application" "upwind_application_ad" {
   count        = local.create_new_application ? 1 : 0
   display_name = local.app_name
   owners = coalescelist(
     var.azure_application_owners,
     [data.azuread_client_config.current.object_id]
   )
+  # Allows auth outside of users organisation, multi tennated AD application
+  sign_in_audience = "AzureADMultipleOrgs"
   marketing_url = "https://www.upwind.io/"
   web {
     homepage_url = "https://www.upwind.io/"
   }
-
+  
   lifecycle {
     ignore_changes = [
       # This block is analogous to the `azuread_application_api_access` resource.
@@ -189,7 +191,7 @@ resource "azuread_application" "this" {
 resource "azuread_application_api_access" "msgraph" {
   count = local.needs_api_access ? 1 : 0
 
-  application_id = azuread_application.this[0].id
+  application_id = azuread_application.upwind_application_ad
   api_client_id  = data.azuread_application_published_app_ids.well_known[0].result["MicrosoftGraph"]
 
   role_ids = [
@@ -207,22 +209,13 @@ data "azuread_service_principal" "existing" {
 }
 
 # Create a service principal for the Azure AD application (only for new applications).
-resource "azuread_service_principal" "this" {
+resource "azuread_service_principal" "upwind_service_principal" {
   count     = local.create_new_application ? 1 : 0
-  client_id = azuread_application.this[0].client_id
+  client_id = azuread_application.upwind_application_ad
   owners = coalescelist(
     var.azure_application_owners,
     [data.azuread_client_config.current.object_id]
   )
-}
-
-# Create a long-lived password for the Azure AD application (only for new applications).
-resource "azuread_application_password" "client_secret" {
-  count      = local.create_new_application ? 1 : 0
-  depends_on = [azuread_service_principal.this]
-
-  application_id = azuread_application.this[0].id
-  end_date       = "2999-12-31T23:59:59Z"
 }
 
 # Assign built-in roles to the service principal.
