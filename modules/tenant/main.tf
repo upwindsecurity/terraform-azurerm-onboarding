@@ -187,9 +187,10 @@ resource "azuread_application_federated_identity_credential" "upwind_federated_i
   application_id = azuread_application.upwind_application_ad[0].id
   display_name   = "upwind_fed_id_cred"
   description    = "Upwind AWS provider"
-  audiences      = [var.wif_audience]
-  issuer         = var.wif_issuer
-  subject        = var.wif_subject
+  audiences      = ["api://AzureADTokenExchange"]
+  issuer         = "https://oidc.eks.${var.wif_region}.amazonaws.com/id/${var.wif_cluster_id}"
+  subject        = "system:serviceaccount:${var.wif_namespace}:eks-azure"
+
 }
 
 # Grant Microsoft Graph API roles to the Azure AD application.

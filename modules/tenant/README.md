@@ -114,9 +114,9 @@ No modules.
 | <a name="input_upwind_integration_endpoint"></a> [upwind\_integration\_endpoint](#input\_upwind\_integration\_endpoint) | The Integration API endpoint. | `string` | `"https://integration.upwind.io"` | no |
 | <a name="input_upwind_organization_id"></a> [upwind\_organization\_id](#input\_upwind\_organization\_id) | The identifier of the Upwind organization to integrate with. | `string` | n/a | yes |
 | <a name="input_upwind_region"></a> [upwind\_region](#input\_upwind\_region) | The region where the Upwind components will be deployed. Must be 'us', 'eu' or 'me' | `string` | `"us"` | no |
-| <a name="input_wif_audience"></a> [wif\_audience](#input\_wif\_audience) | The audience for workload identity federation. | `string` | n/a | yes |
-| <a name="input_wif_issuer"></a> [wif\_issuer](#input\_wif\_issuer) | The OIDC issuer URL for workload identity federation (e.g., EKS OIDC provider URL). | `string` | n/a | yes |
-| <a name="input_wif_subject"></a> [wif\_subject](#input\_wif\_subject) | The subject claim for workload identity federation (e.g., system:serviceaccount:namespace:service-account-name). | `string` | n/a | yes |
+| <a name="input_wif_cluster_id"></a> [wif\_cluster\_id](#input\_wif\_cluster\_id) | The OIDC issuer URL for workload identity federation (e.g., EKS OIDC provider URL). | `string` | n/a | yes |
+| <a name="input_wif_namespace"></a> [wif\_namespace](#input\_wif\_namespace) | The subject claim for workload identity federation (e.g., system:serviceaccount:namespace:service-account-name). | `string` | n/a | yes |
+| <a name="input_wif_region"></a> [wif\_region](#input\_wif\_region) | The OIDC issuer URL for workload identity federation (e.g., EKS OIDC provider URL). | `string` | n/a | yes |
 
 ## Outputs
 

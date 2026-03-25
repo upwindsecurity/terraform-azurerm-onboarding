@@ -241,18 +241,17 @@ variable "key_vault_ip_rules" {
 
 # region workload identity federation
 
-variable "wif_issuer" {
+variable "wif_region" {
+  description = "The OIDC issuer URL for workload identity federation (e.g., EKS OIDC provider URL)."
+  type        = string
+}
+variable "wif_cluster_id" {
   description = "The OIDC issuer URL for workload identity federation (e.g., EKS OIDC provider URL)."
   type        = string
 }
 
-variable "wif_subject" {
+variable "wif_namespace" {
   description = "The subject claim for workload identity federation (e.g., system:serviceaccount:namespace:service-account-name)."
-  type        = string
-}
-
-variable "wif_audience" {
-  description = "The audience for workload identity federation."
   type        = string
 }
 
