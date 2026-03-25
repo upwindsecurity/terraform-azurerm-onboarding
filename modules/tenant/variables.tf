@@ -79,13 +79,6 @@ variable "azure_application_client_id" {
   }
 }
 
-variable "azure_application_client_secret" {
-  description = "Client secret for the existing Azure AD application. Required when azure_application_client_id is provided and organizational credentials will be created. Should be managed externally (e.g., Azure Portal, CLI, or separate automation)."
-  type        = string
-  default     = null
-  sensitive   = true
-}
-
 variable "azure_application_service_principal_object_id" {
   description = "The service principal object ID of the existing Azure AD application. Optional, if provided the module will skip looking up the service principal object ID. Useful if graph permissions cannot be configured for the TF runner App Registration. Should be managed externally (e.g., Azure Portal, CLI, or separate automation)."
   type        = string
@@ -246,6 +239,25 @@ variable "key_vault_ip_rules" {
   default     = []
 }
 
+# region workload identity federation
+
+variable "wif_issuer" {
+  description = "The OIDC issuer URL for workload identity federation (e.g., EKS OIDC provider URL)."
+  type        = string
+}
+
+variable "wif_subject" {
+  description = "The subject claim for workload identity federation (e.g., system:serviceaccount:namespace:service-account-name)."
+  type        = string
+}
+
+variable "wif_audience" {
+  description = "The audience for workload identity federation."
+  type        = string
+}
+
+# endregion workload identity federation
+
 # endregion general
 
 # tflint-ignore: terraform_unused_declarations
@@ -253,10 +265,4 @@ variable "skip_app_service_provider_registration" {
   type        = bool
   description = "DEPRECATED: We have removed the need for this variable. Set to true to skip the Microsoft.App provider registration, recommended if running on Windows. If resource_providers_to_register is set to [\"Microsoft.App\"] on the azurerm provider, this can safely be set to true."
   default     = false
-}
-
-variable "create_organizational_credentials" {
-  description = "Set to false to skip sending organizational credentials to Upwind. The default value for this variable should be set to true for onboarding deployments using 'terraform init && terraform apply' and set to false when offboarding using 'terraform destroy'. It is essential that it is reset appropriately for subsequent deploy / destroy attempts."
-  type        = bool
-  default     = true
 }

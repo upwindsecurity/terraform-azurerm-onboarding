@@ -15,13 +15,7 @@ output "azure_application_name" {
 
 output "azure_application_client_id" {
   description = "The unique identifier for the Azure AD application (client)."
-  value       = local.create_new_application ? azuread_application.this[0].client_id : var.azure_application_client_id
-}
-
-output "azure_application_client_secret" {
-  description = "The client secret for the Azure AD application."
-  value       = local.create_new_application ? azuread_application_password.client_secret[0].value : ""
-  sensitive   = true
+  value       = local.create_new_application ? azuread_application.upwind_application_ad[0].client_id : var.azure_application_client_id
 }
 
 output "azure_service_principal_id" {

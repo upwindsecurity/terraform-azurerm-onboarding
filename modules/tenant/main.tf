@@ -115,14 +115,8 @@ locals {
     random_id.uid.hex,
   )
 
-  # Only create credentials if there is a pending tenant and we're not in destroy mode
-  create_credentials = local.pending_tenant != null && var.create_organizational_credentials
-
   # Get the service principal object ID (from either new or existing)
-  service_principal_object_id = local.create_new_application ? azuread_service_principal.this[0].object_id : var.azure_application_service_principal_object_id != null ? var.azure_application_service_principal_object_id : data.azuread_service_principal.existing[0].object_id
-
-  # Get the application client ID (from either new or existing)
-  application_client_id = local.create_new_application ? azuread_application.this[0].client_id : var.azure_application_client_id
+  service_principal_object_id = local.create_new_application ? azuread_service_principal.upwind_service_principal[0].object_id : var.azure_application_service_principal_object_id != null ? var.azure_application_service_principal_object_id : data.azuread_service_principal.existing[0].object_id
 
   # For existing applications, assume the app owner has configured permissions
   needs_api_access = local.create_new_application && length(var.azure_application_msgraph_roles) > 0
@@ -174,11 +168,11 @@ resource "azuread_application" "upwind_application_ad" {
   )
   # Allows auth outside of users organisation, multi tennated AD application
   sign_in_audience = "AzureADMultipleOrgs"
-  marketing_url = "https://www.upwind.io/"
+  marketing_url    = "https://www.upwind.io/"
   web {
     homepage_url = "https://www.upwind.io/"
   }
-  
+
   lifecycle {
     ignore_changes = [
       # This block is analogous to the `azuread_application_api_access` resource.
@@ -187,11 +181,22 @@ resource "azuread_application" "upwind_application_ad" {
   }
 }
 
+# Create federated creds tied to the upwind application
+resource "azuread_application_federated_identity_credential" "upwind_federated_id_cred" {
+  count          = local.create_new_application ? 1 : 0
+  application_id = azuread_application.upwind_application_ad[0].id
+  display_name   = "upwind_fed_id_cred"
+  description    = "Upwind AWS provider"
+  audiences      = [var.wif_audience]
+  issuer         = var.wif_issuer
+  subject        = var.wif_subject
+}
+
 # Grant Microsoft Graph API roles to the Azure AD application.
 resource "azuread_application_api_access" "msgraph" {
   count = local.needs_api_access ? 1 : 0
 
-  application_id = azuread_application.upwind_application_ad
+  application_id = azuread_application.upwind_application_ad[0].id
   api_client_id  = data.azuread_application_published_app_ids.well_known[0].result["MicrosoftGraph"]
 
   role_ids = [
@@ -211,7 +216,7 @@ data "azuread_service_principal" "existing" {
 # Create a service principal for the Azure AD application (only for new applications).
 resource "azuread_service_principal" "upwind_service_principal" {
   count     = local.create_new_application ? 1 : 0
-  client_id = azuread_application.upwind_application_ad
+  client_id = azuread_application.upwind_application_ad[0].client_id
   owners = coalescelist(
     var.azure_application_owners,
     [data.azuread_client_config.current.object_id]
