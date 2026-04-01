@@ -246,6 +246,18 @@ variable "key_vault_ip_rules" {
   default     = []
 }
 
+variable "key_vault_logging_enabled" {
+  type        = bool
+  description = "Whether to enable diagnostic logging for the Key Vault. When true, creates a Log Analytics Workspace and configures diagnostic settings to capture AuditEvent logs and AllMetrics."
+  default     = false
+}
+
+variable "key_vault_logging_retention_in_days" {
+  type        = number
+  description = "The number of days to retain logs in the Log Analytics Workspace. Only relevant if key_vault_logging_enabled is true."
+  default     = 30
+}
+
 # endregion general
 
 # tflint-ignore: terraform_unused_declarations

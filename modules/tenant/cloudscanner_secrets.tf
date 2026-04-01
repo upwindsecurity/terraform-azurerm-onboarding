@@ -82,3 +82,30 @@ resource "azurerm_key_vault_secret" "scanner_client_secret" {
   depends_on   = [azurerm_role_assignment.kv_admin]
   tags         = var.tags
 }
+
+# Log Analytics Workspace for Key Vault diagnostic logging
+resource "azurerm_log_analytics_workspace" "kv_logging" {
+  count               = local.cloudscanner_enabled && var.key_vault_logging_enabled ? 1 : 0
+  name                = "law-${local.key_vault_name}"
+  location            = azurerm_resource_group.orgwide_resource_group[0].location
+  resource_group_name = azurerm_resource_group.orgwide_resource_group[0].name
+  sku                 = "PerGB2018"
+  retention_in_days   = var.key_vault_logging_retention_in_days
+  tags                = var.tags
+}
+
+# Diagnostic setting to capture Key Vault audit events and metrics
+resource "azurerm_monitor_diagnostic_setting" "kv_diagnostics" {
+  count                      = local.cloudscanner_enabled && var.key_vault_logging_enabled ? 1 : 0
+  name                       = "kv-diagnostics"
+  target_resource_id         = azurerm_key_vault.orgwide_key_vault[0].id
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.kv_logging[0].id
+
+  enabled_log {
+    category = "AuditEvent"
+  }
+
+  enabled_metric {
+    category = "AllMetrics"
+  }
+}
