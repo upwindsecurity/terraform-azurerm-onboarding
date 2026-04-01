@@ -289,16 +289,10 @@ data "http" "upwind_get_cloud_credentials_request" {
       error_message = "Unable to obtain access token. Please verify your client ID and client secret. Response: ${data.http.upwind_get_access_token_request.response_body}."
     }
 
-    # The fix #35895 for issue #34310 is included in version 1.10.0 and later.
-    # Since version 1.10.0 was recently released and is not yet widely adopted,
-    # using postconditions could introduce or exacerbate errors. To prevent
-    # potential issues, we should avoid using postconditions until this version
-    # is more commonly utilized.
-    #
-    # postcondition {
-    #   condition     = contains([200], self.status_code)
-    #   error_message = "Error encountered with status code: ${self.status_code}. Response: ${self.response_body}."
-    # }
+    postcondition {
+      condition     = contains([200], self.status_code)
+      error_message = "Failed to get cloud credentials (status ${self.status_code}). Response: ${self.response_body}."
+    }
   }
 }
 
@@ -352,15 +346,9 @@ data "http" "upwind_create_cloud_credentials_request" {
       error_message = "Unable to obtain access token. Please verify your client ID and client secret. Response: ${data.http.upwind_get_access_token_request.response_body}."
     }
 
-    # The fix #35895 for issue #34310 is included in version 1.10.0 and later.
-    # Since version 1.10.0 was recently released and is not yet widely adopted,
-    # using postconditions could introduce or exacerbate errors. To prevent
-    # potential issues, we should avoid using postconditions until this version
-    # is more commonly utilized.
-    #
-    # postcondition {
-    #   condition     = contains([201, 204], self.status_code)
-    #   error_message = "Error encountered with status code: ${self.status_code}. Response: ${self.response_body}."
-    # }
+    postcondition {
+      condition     = contains([201, 204], self.status_code)
+      error_message = "Failed to create cloud credentials (status ${self.status_code}). Response: ${self.response_body}."
+    }
   }
 }

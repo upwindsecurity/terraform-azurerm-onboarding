@@ -286,6 +286,10 @@ data "http" "upwind_get_organizational_credentials_request" {
       condition     = local.upwind_access_token != null
       error_message = "Unable to obtain access token. Please verify your client ID and client secret. Response: ${data.http.upwind_get_access_token_request.response_body}."
     }
+    postcondition {
+      condition     = self.status_code == 200
+      error_message = "Failed to get organizational credentials (status ${self.status_code}). Response: ${self.response_body}."
+    }
   }
 }
 

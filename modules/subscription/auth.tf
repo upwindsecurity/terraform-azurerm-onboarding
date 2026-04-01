@@ -37,5 +37,9 @@ data "http" "upwind_get_access_token_request" {
       condition     = var.upwind_client_id != null && var.upwind_client_secret != null
       error_message = "Invalid client credentials. Please verify your client ID and client secret."
     }
+    postcondition {
+      condition     = self.status_code == 200
+      error_message = "Failed to obtain access token (status ${self.status_code}). Response: ${self.response_body}."
+    }
   }
 }
