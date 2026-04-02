@@ -38,3 +38,8 @@ output "pending_tenant" {
   value       = local.pending_tenant
   description = "The tenant ID that is pending onboarding, or null if already onboarded."
 }
+
+output "key_vault_log_analytics_workspace_id" {
+  value       = var.key_vault_logging_enabled && local.cloudscanner_enabled ? azurerm_log_analytics_workspace.kv_logging[0].id : null
+  description = "The ID of the Log Analytics Workspace used for Key Vault diagnostic logging, or null if logging is not enabled."
+}
