@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.5.4](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.5.3...v1.5.4) (2025-10-21)
+
+### Bug Fixes
+
+* **AG-3928:** allow multiple mgmt groups, triggering release ([#28](https://github.com/upwindsecurity/terraform-azurerm-onboarding/issues/28)) ([6bae48f](https://github.com/upwindsecurity/terraform-azurerm-onboarding/commit/6bae48f14f21fc368b127e84b2b6f4867e085763))
+
 ## [1.3.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.2.0...v1.3.0) (2025-08-22)
 
 ### Features
