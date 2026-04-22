@@ -136,6 +136,22 @@ resource "azurerm_role_assignment" "storage_reader" {
   scope                = each.value
 }
 
+# Assign Storage File Data Privileged Reader role to the worker identity
+# If function_storage_accounts is provided, assign to specific storage accounts only.
+# Otherwise, assign to all resources in cloudscanner scope.
+resource "azurerm_role_assignment" "storage_file_reader" {
+  for_each = (local.cloudscanner_enabled && !var.disable_function_scanning) ? (
+    length(var.function_storage_accounts) > 0 ?
+    toset(var.function_storage_accounts) :
+    toset(local.cloudscanner_scopes)
+  ) : []
+
+  role_definition_name = "Storage File Data Privileged Reader"
+  principal_id         = azurerm_user_assigned_identity.worker_user_assigned_identity[0].principal_id
+  scope                = each.value
+}
+
+
 # endregion
 
 # region Scaler
