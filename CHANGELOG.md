@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.7.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.6.5...v1.7.0) (2026-04-02)
+
+### Features
+
+* **AG-4891:** add optional Key Vault diagnostic logging ([#57](https://github.com/upwindsecurity/terraform-azurerm-onboarding/issues/57)) ([f10dace](https://github.com/upwindsecurity/terraform-azurerm-onboarding/commit/f10dacece4df099dc7e2c13b5cc2b70c8943b427))
+
 ## [1.3.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.2.0...v1.3.0) (2025-08-22)
 
 ### Features
