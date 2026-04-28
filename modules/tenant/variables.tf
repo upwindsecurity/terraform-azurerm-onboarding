@@ -8,12 +8,20 @@ variable "upwind_organization_id" {
 variable "upwind_client_id" {
   description = "The client ID used for authentication with the Upwind Authorization Service."
   type        = string
+  validation {
+    condition     = var.upwind_client_id != ""
+    error_message = "upwind_client_id must be provided and cannot be empty."
+  }
 }
 
 variable "upwind_client_secret" {
   description = "The client secret for authentication with the Upwind Authorization Service."
   type        = string
   sensitive   = true
+  validation {
+    condition     = var.upwind_client_secret != ""
+    error_message = "upwind_client_secret must be provided and cannot be empty."
+  }
 }
 
 variable "scanner_client_id" {
@@ -84,6 +92,10 @@ variable "azure_application_client_secret" {
   type        = string
   default     = null
   sensitive   = true
+  validation {
+    condition     = var.azure_application_client_id == null || (var.azure_application_client_secret != null && var.azure_application_client_secret != "")
+    error_message = "The azure_application_client_secret must be provided and non-empty when azure_application_client_id is specified."
+  }
 }
 
 variable "azure_application_service_principal_object_id" {
