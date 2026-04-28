@@ -20,10 +20,10 @@ seamlessly connect their entire tenant for comprehensive monitoring and security
 
 | Name | Version |
 |------|---------|
-| <a name="provider_azuread"></a> [azuread](#provider\_azuread) | 3.6.0 |
-| <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 4.52.0 |
+| <a name="provider_azuread"></a> [azuread](#provider\_azuread) | 3.8.0 |
+| <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 4.70.0 |
 | <a name="provider_http"></a> [http](#provider\_http) | 3.5.0 |
-| <a name="provider_random"></a> [random](#provider\_random) | 3.7.2 |
+| <a name="provider_random"></a> [random](#provider\_random) | 3.8.1 |
 | <a name="provider_time"></a> [time](#provider\_time) | 0.13.1 |
 
 ## Modules
