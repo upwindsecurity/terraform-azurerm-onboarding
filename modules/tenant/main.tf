@@ -128,6 +128,20 @@ locals {
   needs_api_access = local.create_new_application && length(var.azure_application_msgraph_roles) > 0
 }
 
+check "tenant_id_or_management_group" {
+  assert {
+    condition     = var.azure_tenant_id != "" || length(var.azure_management_group_ids) > 0
+    error_message = "Either azure_tenant_id or at least one azure_management_group_ids must be provided to determine the scope of role assignments."
+  }
+}
+
+check "azure_application_credentials" {
+  assert {
+    condition     = var.azure_application_client_id == null || (var.azure_application_client_secret != null && var.azure_application_client_secret != "")
+    error_message = "When azure_application_client_id is provided, azure_application_client_secret must also be provided and non-empty."
+  }
+}
+
 # Retrieve the current Azure AD client configuration.
 data "azuread_client_config" "current" {}
 
