@@ -35,6 +35,11 @@ variable "scanner_client_secret" {
   type        = string
   sensitive   = true
   default     = ""
+
+  validation {
+    condition     = var.scanner_client_id == "" || var.scanner_client_secret != ""
+    error_message = "scanner_client_secret must be provided and non-empty when scanner_client_id is specified."
+  }
 }
 
 variable "upwind_auth_endpoint" {
@@ -74,6 +79,11 @@ variable "azure_management_group_ids" {
   description = "List of management group names (not full resource IDs) to grant read access to. For example, use 'upwindsecurity-sandbox' instead of '/providers/Microsoft.Management/managementGroups/upwindsecurity-sandbox'. Can be combined with subscription include/exclude filters to further refine the scope."
   type        = list(string)
   default     = []
+
+  validation {
+    condition     = var.azure_tenant_id != "" || length(var.azure_management_group_ids) > 0
+    error_message = "Either azure_tenant_id or at least one azure_management_group_ids must be provided to determine the scope of role assignments."
+  }
 }
 
 variable "azure_application_client_id" {
@@ -95,6 +105,10 @@ variable "azure_application_client_secret" {
   validation {
     condition     = var.azure_application_client_id == null || (var.azure_application_client_secret != null && var.azure_application_client_secret != "")
     error_message = "The azure_application_client_secret must be provided and non-empty when azure_application_client_id is specified."
+  }
+  validation {
+    condition     = var.azure_application_client_secret == null || !can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.azure_application_client_secret))
+    error_message = "The azure_application_client_secret appears to be a GUID, which is the secret ID rather than the secret value. Use the actual secret value from the Azure Portal (Certificates & secrets > Value column), not the Secret ID."
   }
 }
 
