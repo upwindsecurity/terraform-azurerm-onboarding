@@ -11,5 +11,10 @@ resource "azurerm_resource_group" "orgwide_resource_group" {
   count    = local.cloudscanner_enabled ? 1 : 0
   name     = "upwind-cs-rg-${var.upwind_organization_id}"
   location = var.azure_cloudscanner_location
-  tags     = var.tags
+  tags = merge(var.tags, {
+    # Read by onboarding-service at admin-account discovery to decide whether
+    # Upwind should run the CloudScanner ARM template, mirroring the AWS
+    # ManagedCloudScannersTag pattern.
+    "UpwindManagedCloudScanners" = var.self_managed_cloudscanner ? "Disabled" : "Enabled"
+  })
 }

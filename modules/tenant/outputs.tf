@@ -43,3 +43,8 @@ output "key_vault_log_analytics_workspace_id" {
   value       = var.key_vault_logging_enabled && local.cloudscanner_enabled ? azurerm_log_analytics_workspace.kv_logging[0].id : null
   description = "The ID of the Log Analytics Workspace used for Key Vault diagnostic logging, or null if logging is not enabled."
 }
+
+output "cloudscanner_key_vault_name" {
+  value       = local.cloudscanner_enabled ? azurerm_key_vault.orgwide_key_vault[0].name : null
+  description = "Name of the org-wide CloudScanner Key Vault. Use this as the orgWideKeyVaultName parameter when manually deploying the CloudScanner ARM template (self-managed mode). Returns null when CloudScanner is not enabled."
+}

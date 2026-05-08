@@ -31,6 +31,25 @@ Each option is demonstrated in a dedicated example.
   * Variables: Exclude scanner credentials (leave empty or omit)
   * Example: [`examples/tenant-no-cloudscanner/`](examples/tenant-no-cloudscanner/)
 
+## CloudScanner Deployment Management
+
+When CloudScanner is enabled, the deployer role can either be granted to Upwind
+(default) or withheld so the customer deploys the CloudScanner ARM template
+themselves. The mode is communicated to `onboarding-service` via the
+`UpwindManagedCloudScanners` tag on the org-wide resource group.
+
+* **Upwind-managed** - Upwind deploys CloudScanner automatically
+  * Variable: `self_managed_cloudscanner = false` (default)
+  * RG tag: `UpwindManagedCloudScanners = "Enabled"`
+  * Example: [`examples/tenant-basic/`](examples/tenant-basic/)
+
+* **Self-managed** - Customer deploys the CloudScanner ARM template themselves
+  * Variable: `self_managed_cloudscanner = true`
+  * RG tag: `UpwindManagedCloudScanners = "Disabled"`
+  * Use when: customer's security policy prohibits vendor-managed deployments
+  * Example: [`examples/tenant-self-managed-cloudscanner/`](examples/tenant-self-managed-cloudscanner/)
+  * See the *Customer Self-Managed Cloudscanner Deployment (Azure)* runbook in Confluence for the manual ARM template procedure.
+
 ## Custom Tags
 
 * **Include tags** - Apply custom tags to all resources
@@ -61,6 +80,7 @@ Each option is demonstrated in a dedicated example.
 | [tenant-include-subscriptions](examples/tenant-include-subscriptions/) | Include Subs | ✅ | ❌ | Allow |
 | [tenant-exclude-subscriptions](examples/tenant-exclude-subscriptions/) | Exclude Subs | ✅ | ❌ | Allow |
 | [tenant-no-cloudscanner](examples/tenant-no-cloudscanner/) | Tenant | ❌ | ❌ | N/A |
+| [tenant-self-managed-cloudscanner](examples/tenant-self-managed-cloudscanner/) | Tenant | Self-managed | ❌ | Allow |
 | [tenant-with-tags](examples/tenant-with-tags/) | Tenant | ✅ | ✅ | Allow |
 | [tenant-keyvault-deny](examples/tenant-keyvault-deny/) | Tenant | ✅ | ❌ | Deny |
 | [tenant-advanced](examples/tenant-advanced/) | Exclude Subs | ✅ | ✅ | Deny |
