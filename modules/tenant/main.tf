@@ -152,6 +152,26 @@ data "azuread_service_principal" "msgraph" {
   client_id = data.azuread_application_published_app_ids.well_known[0].result["MicrosoftGraph"]
 }
 
+# Cross-variable input validation. Variable.validation blocks only allow self-references in
+# Terraform 1.4-1.8, so preconditions on a null_resource are the portable equivalent that keeps
+# required_version = ">= 1.2" compatible with downstream consumers.
+resource "null_resource" "input_validation" {
+  lifecycle {
+    precondition {
+      condition     = var.scanner_client_id == "" || var.scanner_client_secret != ""
+      error_message = "scanner_client_secret must be provided and non-empty when scanner_client_id is specified."
+    }
+    precondition {
+      condition     = var.azure_tenant_id != "" || length(var.azure_management_group_ids) > 0
+      error_message = "Either azure_tenant_id or at least one azure_management_group_ids must be provided to determine the scope of role assignments."
+    }
+    precondition {
+      condition     = var.azure_application_client_id == null || (var.azure_application_client_secret != null && var.azure_application_client_secret != "")
+      error_message = "The azure_application_client_secret must be provided and non-empty when azure_application_client_id is specified."
+    }
+  }
+}
+
 # Generate a random ID to ensure unique naming for Azure resources.
 resource "random_id" "uid" {
   byte_length = 4
