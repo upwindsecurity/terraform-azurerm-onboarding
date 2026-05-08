@@ -151,6 +151,7 @@ variable "azure_roles" {
 
     # Service-specific readers
     "Log Analytics Reader",
+    "Cognitive Services Data Reader",
   ]
 }
 
