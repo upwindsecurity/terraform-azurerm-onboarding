@@ -3,6 +3,7 @@
 This Terraform module handles the onboarding of Microsoft Azure subscriptions to the Upwind platform, enabling users to
 seamlessly connect their subscriptions for comprehensive monitoring and security analysis.
 
+<!-- BEGIN_TF_DOCS -->
 ## Requirements
 
 | Name | Version |
