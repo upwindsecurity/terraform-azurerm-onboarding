@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.8.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.7.0...v1.8.0) (2026-04-22)
+
+### Features
+
+* **AG-8707:** Add azure file share reader role to worker ([#61](https://github.com/upwindsecurity/terraform-azurerm-onboarding/issues/61)) ([0ef61e3](https://github.com/upwindsecurity/terraform-azurerm-onboarding/commit/0ef61e3af5b5505707f82757076dd7dc124652cd))
+
 ## [1.3.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.2.0...v1.3.0) (2025-08-22)
 
 ### Features
