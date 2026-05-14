@@ -151,6 +151,35 @@ resource "azurerm_role_assignment" "storage_file_reader" {
   scope                = each.value
 }
 
+# Assign a least-privilege App Service SCM bearer role to the worker identity
+resource "azurerm_role_definition" "app_service_scm_bearer_reader" {
+  for_each = (local.cloudscanner_enabled && !var.disable_function_scanning) ? toset(local.cloudscanner_scopes) : []
+
+  name        = "Upwind App Service SCM Bearer Reader-${local.resource_suffix}-${split("/", each.value)[length(split("/", each.value)) - 1]}"
+  description = "Role for CloudScanner workers to read App Service metadata and access SCM with bearer authentication in this scope"
+  scope       = each.value
+
+  permissions {
+    actions = [
+      "Microsoft.Web/sites/read",
+      "Microsoft.Web/sites/publish/Action"
+    ]
+  }
+}
+
+resource "time_sleep" "app_service_scm_bearer_reader_role_definition_wait" {
+  count           = (local.cloudscanner_enabled && !var.disable_function_scanning) ? 1 : 0
+  depends_on      = [azurerm_role_definition.app_service_scm_bearer_reader]
+  create_duration = var.azure_role_definition_wait_time
+}
+
+resource "azurerm_role_assignment" "app_service_scm_bearer_reader" {
+  for_each           = resource.azurerm_role_definition.app_service_scm_bearer_reader
+  role_definition_id = each.value.role_definition_resource_id
+  principal_id       = azurerm_user_assigned_identity.worker_user_assigned_identity[0].principal_id
+  scope              = each.value.scope
+  depends_on         = [time_sleep.app_service_scm_bearer_reader_role_definition_wait[0]]
+}
 
 # endregion
 
