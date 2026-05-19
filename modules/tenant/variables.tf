@@ -87,7 +87,7 @@ variable "azure_management_group_ids" {
 }
 
 variable "azure_application_client_id" {
-  description = "Optional client ID of an existing Azure AD application. If provided, the module will use this existing application instead of creating a new one. Mutually exclusive with azure_application_name_prefix. MSGraph permissions need to be configured manually for the existing application."
+  description = "Optional client ID of an existing Azure AD application. If provided, the module will use this existing application instead of creating a new one. Mutually exclusive with azure_application_name_prefix. MSGraph permissions need to be configured manually for the existing application. Note: for a multi-tenant application registered in a different tenant, a service principal for the application must already exist in the tenant being onboarded (e.g. via admin consent at <https://login.microsoftonline.com/{tenant_id}/adminconsent?client_id={app_id}>) before running this module — the service principal lookup and role assignments are resolved against the onboarded tenant."
   type        = string
   default     = null
 
