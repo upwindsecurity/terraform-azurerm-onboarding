@@ -40,7 +40,7 @@ themselves. The mode is communicated to `onboarding-service` via the
 
 * **Upwind-managed** - Upwind deploys CloudScanner automatically
   * Variable: `self_managed_cloudscanner = false` (default)
-  * RG tag: `UpwindManagedCloudScanners = "Enabled"`
+  * RG tag: not set (`onboarding-service` treats absent as Upwind-managed)
   * Example: [`examples/tenant-basic/`](examples/tenant-basic/)
 
 * **Self-managed** - Customer deploys the CloudScanner ARM template themselves
