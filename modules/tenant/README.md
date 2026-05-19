@@ -21,7 +21,7 @@ seamlessly connect their entire tenant for comprehensive monitoring and security
 | Name | Version |
 |------|---------|
 | <a name="provider_azuread"></a> [azuread](#provider\_azuread) | 3.8.0 |
-| <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 4.70.0 |
+| <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 4.72.0 |
 | <a name="provider_http"></a> [http](#provider\_http) | 3.5.0 |
 | <a name="provider_random"></a> [random](#provider\_random) | 3.8.1 |
 | <a name="provider_time"></a> [time](#provider\_time) | 0.13.1 |
@@ -114,6 +114,7 @@ No modules.
 | <a name="input_resource_suffix"></a> [resource\_suffix](#input\_resource\_suffix) | The suffix to append to all resources created by this module. | `string` | `""` | no |
 | <a name="input_scanner_client_id"></a> [scanner\_client\_id](#input\_scanner\_client\_id) | The client ID used for authentication with the Upwind CloudScanner Service. | `string` | `""` | no |
 | <a name="input_scanner_client_secret"></a> [scanner\_client\_secret](#input\_scanner\_client\_secret) | The client secret for authentication with the Upwind CloudScanner Service. | `string` | `""` | no |
+| <a name="input_self_managed_cloudscanner"></a> [self\_managed\_cloudscanner](#input\_self\_managed\_cloudscanner) | Set to true for customers whose policy prohibits vendor-managed deployments. When true, the CloudScanner deployer role is not assigned to the Upwind service principal and the org-wide resource group is tagged UpwindManagedCloudScanners=Disabled. The customer is then responsible for deploying the CloudScanner ARM template themselves; onboarding-service reads the tag at admin-account discovery and short-circuits its deploy paths. All other CloudScanner IAM (worker, scaler, target, storage-reader, KV-crypto) and supporting infrastructure (key vault, managed identities) are still provisioned. See the 'Customer Self-Managed Cloudscanner Deployment (Azure)' runbook in Confluence for the manual deployment procedure that must accompany this setting. | `bool` | `false` | no |
 | <a name="input_skip_app_service_provider_registration"></a> [skip\_app\_service\_provider\_registration](#input\_skip\_app\_service\_provider\_registration) | DEPRECATED: We have removed the need for this variable. Set to true to skip the Microsoft.App provider registration, recommended if running on Windows. If resource\_providers\_to\_register is set to ["Microsoft.App"] on the azurerm provider, this can safely be set to true. | `bool` | `false` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags to apply to all resources. | `map(string)` | `{}` | no |
 | <a name="input_upwind_auth_endpoint"></a> [upwind\_auth\_endpoint](#input\_upwind\_auth\_endpoint) | The Authentication API endpoint. | `string` | `"https://auth.upwind.io"` | no |
@@ -132,6 +133,7 @@ No modules.
 | <a name="output_azure_application_name"></a> [azure\_application\_name](#output\_azure\_application\_name) | The display name for the Azure AD application. |
 | <a name="output_azure_service_principal_id"></a> [azure\_service\_principal\_id](#output\_azure\_service\_principal\_id) | The unique identifier for the Azure AD service principal. |
 | <a name="output_azure_tenant_id"></a> [azure\_tenant\_id](#output\_azure\_tenant\_id) | The unique identifier for the current Azure tenant. |
+| <a name="output_cloudscanner_key_vault_name"></a> [cloudscanner\_key\_vault\_name](#output\_cloudscanner\_key\_vault\_name) | Name of the org-wide CloudScanner Key Vault. Use this as the orgWideKeyVaultName parameter when manually deploying the CloudScanner ARM template (self-managed mode). Returns null when CloudScanner is not enabled. |
 | <a name="output_key_vault_log_analytics_workspace_id"></a> [key\_vault\_log\_analytics\_workspace\_id](#output\_key\_vault\_log\_analytics\_workspace\_id) | The ID of the Log Analytics Workspace used for Key Vault diagnostic logging, or null if logging is not enabled. |
 | <a name="output_organizational_credentials"></a> [organizational\_credentials](#output\_organizational\_credentials) | The Upwind organizational credentials that were created to onboard the Azure tenant. |
 | <a name="output_pending_tenant"></a> [pending\_tenant](#output\_pending\_tenant) | The tenant ID that is pending onboarding, or null if already onboarded. |
