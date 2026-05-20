@@ -87,7 +87,7 @@ variable "azure_management_group_ids" {
 }
 
 variable "azure_application_client_id" {
-  description = "Optional client ID of an existing Azure AD application. If provided, the module will use this existing application instead of creating a new one. Mutually exclusive with azure_application_name_prefix. MSGraph permissions need to be configured manually for the existing application."
+  description = "Optional client ID of an existing Azure AD application. If provided, the module will use this existing application instead of creating a new one. Mutually exclusive with azure_application_name_prefix. MSGraph permissions need to be configured manually for the existing application. Note: for a multi-tenant application registered in a different tenant, a service principal for the application must already exist in the tenant being onboarded (e.g. created via `az ad sp create --id <client_id>` or via admin consent at <https://login.microsoftonline.com/{tenant_id}/adminconsent?client_id={app_id}>) before running this module. In the multi-tenant case you must also set azure_application_service_principal_object_id — otherwise the data-source lookup of the application object fails at plan time, because the app registration lives in the home tenant and is not visible to the runner."
   type        = string
   default     = null
 
@@ -113,7 +113,7 @@ variable "azure_application_client_secret" {
 }
 
 variable "azure_application_service_principal_object_id" {
-  description = "The service principal object ID of the existing Azure AD application. Optional, if provided the module will skip looking up the service principal object ID. Useful if graph permissions cannot be configured for the TF runner App Registration. Should be managed externally (e.g., Azure Portal, CLI, or separate automation)."
+  description = "The service principal object ID of the existing Azure AD application. Optional, if provided the module will skip looking up the service principal object ID. Useful if graph permissions cannot be configured for the TF runner App Registration. Required when onboarding via a multi-tenant application registered in a different tenant: the app registration is not visible in the tenant being onboarded, so the data-source lookup of the application would fail at plan time — supplying the SP object ID directly bypasses that lookup. Should be managed externally (e.g., Azure Portal, CLI, or separate automation)."
   type        = string
   default     = null
 
