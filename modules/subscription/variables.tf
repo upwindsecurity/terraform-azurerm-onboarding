@@ -91,7 +91,7 @@ variable "azure_application_msgraph_roles" {
 variable "azure_roles" {
   description = "The names of the Azure roles that should be assigned to the service principal."
   type        = list(string)
-  default     = ["Reader"]
+  default     = ["Reader", "Cognitive Services Data Reader"]
 }
 
 variable "azure_custom_role_name_prefix" {
