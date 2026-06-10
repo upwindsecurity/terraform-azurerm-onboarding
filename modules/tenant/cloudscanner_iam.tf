@@ -155,7 +155,7 @@ resource "azurerm_role_assignment" "storage_file_reader" {
 resource "azurerm_role_definition" "app_service_scm_bearer_reader" {
   for_each = (local.cloudscanner_enabled && !var.disable_function_scanning) ? toset(local.cloudscanner_scopes) : []
 
-  name        = "CloudScannerAppServiceScmRole-${local.resource_suffix}"
+  name        = "CloudScannerAppServiceScmRole-${local.resource_suffix}-${split("/", each.value)[length(split("/", each.value)) - 1]}"
   description = "Role for CloudScanner workers to read App Service metadata and access SCM with bearer authentication in this scope"
   scope       = each.value
 
