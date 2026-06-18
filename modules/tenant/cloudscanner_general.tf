@@ -11,5 +11,15 @@ resource "azurerm_resource_group" "orgwide_resource_group" {
   count    = local.cloudscanner_enabled ? 1 : 0
   name     = "upwind-cs-rg-${var.upwind_organization_id}"
   location = var.azure_cloudscanner_location
-  tags     = var.tags
+  # The UpwindManagedCloudScanners tag is only set when the customer is
+  # self-managing CloudScanner. onboarding-service treats absent as
+  # Upwind-managed (the default), mirroring the AWS ManagedCloudScannersTag
+  # pattern. Keeping the default-mode RG tag-free avoids a needless diff
+  # against existing deployments and makes self-managed mode visually obvious.
+  tags = merge(
+    var.tags,
+    var.self_managed_cloudscanner ? {
+      "UpwindManagedCloudScanners" = "Disabled"
+    } : {},
+  )
 }

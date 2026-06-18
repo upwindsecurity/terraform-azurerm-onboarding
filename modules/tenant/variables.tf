@@ -285,6 +285,12 @@ variable "key_vault_logging_retention_in_days" {
   default     = 30
 }
 
+variable "self_managed_cloudscanner" {
+  description = "Set to true for customers whose policy prohibits vendor-managed deployments. When true, the CloudScanner deployer role is not assigned to the Upwind service principal and the org-wide resource group is tagged UpwindManagedCloudScanners=Disabled. The customer is then responsible for deploying the CloudScanner ARM template themselves; onboarding-service reads the tag at admin-account discovery and short-circuits its deploy paths. All other CloudScanner IAM (worker, scaler, target, storage-reader, KV-crypto) and supporting infrastructure (key vault, managed identities) are still provisioned. See the 'Customer Self-Managed Cloudscanner Deployment (Azure)' runbook in Confluence for the manual deployment procedure that must accompany this setting."
+  type        = bool
+  default     = false
+}
+
 # endregion general
 
 # tflint-ignore: terraform_unused_declarations
