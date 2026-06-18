@@ -10,10 +10,11 @@ locals {
     mg_id : "/providers/Microsoft.Management/managementGroups/${mg_id}"
   ]
 
-  # Create a map of existing organizational credentials
+  # Map tenant_id -> stored client_id from Upwind. Falls back to "" when the API
+  # response omits clientId (older monolith), which keeps presence-only behavior.
   organizational_credentials = {
     for cc in jsondecode(data.http.upwind_get_organizational_credentials_request.response_body) :
-    lower(cc.azureOrganizationId) => true
+    lower(cc.azureOrganizationId) => try(cc.clientId, "")
   }
 
   # Tenant ID to onboard - single tenant approach
@@ -21,8 +22,16 @@ locals {
   # Otherwise, derive it from the orchestrator subscription's tenant
   tenant_id = var.azure_tenant_id != "" ? var.azure_tenant_id : data.azurerm_subscription.orchestrator.tenant_id
 
-  # Determine if this tenant is pending onboarding (does not have existing credentials)
-  pending_tenant = lookup(local.organizational_credentials, local.tenant_id, false) == false ? local.tenant_id : null
+  # Stale-credential detection. A tenant is "pending" (POST should fire) when:
+  #   - it isn't onboarded yet (lookup returns null), OR
+  #   - it's onboarded and the stored client_id differs from the local one.
+  # When the API doesn't return clientId (older monolith), stored_client_id is "" and
+  # we fall back to presence-only behavior to avoid false positives.
+  stored_client_id   = lookup(local.organizational_credentials, local.tenant_id, null)
+  tenant_missing     = local.stored_client_id == null
+  tenant_stale       = local.stored_client_id != null && local.stored_client_id != "" && lower(local.stored_client_id) != lower(local.application_client_id)
+  pending_tenant     = (local.tenant_missing || local.tenant_stale) ? local.tenant_id : null
+  overwrite_required = local.tenant_stale
 
   # Determine effective scopes for service principal role assignments
   # Priority logic:
@@ -319,6 +328,7 @@ data "http" "upwind_create_organizational_credentials_request" {
   request_body = jsonencode(
     {
       "azure_organization_id" = local.pending_tenant
+      "allow_overwrite"       = local.overwrite_required
       "create_credentials_request" = {
         "provider" = {
           "name"            = "azure",
