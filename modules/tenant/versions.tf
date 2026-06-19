@@ -1,5 +1,7 @@
 terraform {
-  required_version = ">= 1.2"
+  # >= 1.9 required for cross-variable validation (the upwind_client_id /
+  # upwind_client_secret validations reference var.saas_enabled).
+  required_version = ">= 1.9"
 
   required_providers {
     azuread = {
