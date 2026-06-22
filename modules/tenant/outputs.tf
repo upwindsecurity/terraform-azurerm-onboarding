@@ -45,11 +45,11 @@ output "key_vault_log_analytics_workspace_id" {
 }
 
 output "saas_snapshot_service_principal_object_id" {
-  description = "SaaS mode: object ID of the consented Snapshot app registration service principal (null when saas_enabled is false)."
-  value       = var.saas_enabled ? azuread_service_principal.saas_snapshot[0].object_id : null
+  description = "SaaS mode: object ID of the Snapshot app registration service principal - supplied via snapshot_app_service_principal_object_id, or created by the module (null when saas_enabled is false)."
+  value       = var.saas_enabled ? local.saas_snapshot_sp_object_id : null
 }
 
 output "saas_fetcher_service_principal_object_id" {
-  description = "SaaS mode: object ID of the consented Fetcher app registration service principal (null when saas_enabled is false)."
-  value       = var.saas_enabled ? azuread_service_principal.saas_fetcher[0].object_id : null
+  description = "SaaS mode: object ID of the Fetcher app registration service principal - supplied via fetcher_app_service_principal_object_id, or created by the module (null when saas_enabled is false)."
+  value       = var.saas_enabled ? local.saas_fetcher_sp_object_id : null
 }

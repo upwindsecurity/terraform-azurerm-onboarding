@@ -313,7 +313,7 @@ variable "saas_enabled" {
 }
 
 variable "snapshot_app_client_id" {
-  description = "SaaS mode: client ID of Upwind's multi-tenant Snapshot app registration. Its service principal is materialized in the customer tenant and granted Reader + Disk Snapshot Contributor + Data Operator for Managed Disks at the tenant-root management group. Required when saas_enabled is true."
+  description = "SaaS mode: client ID of Upwind's multi-tenant Snapshot app registration. Its service principal is materialized in the customer tenant and granted Reader + Disk Snapshot Contributor + Data Operator for Managed Disks at the tenant-root management group. Required when saas_enabled is true, unless snapshot_app_service_principal_object_id is provided."
   type        = string
   default     = ""
 
@@ -324,13 +324,35 @@ variable "snapshot_app_client_id" {
 }
 
 variable "fetcher_app_client_id" {
-  description = "SaaS mode: client ID of Upwind's multi-tenant Fetcher app registration. Its service principal is materialized in the customer tenant and granted Reader at the tenant-root management group. Required when saas_enabled is true."
+  description = "SaaS mode: client ID of Upwind's multi-tenant Fetcher app registration. Its service principal is materialized in the customer tenant and granted Reader at the tenant-root management group. Required when saas_enabled is true, unless fetcher_app_service_principal_object_id is provided."
   type        = string
   default     = ""
 
   validation {
     condition     = var.fetcher_app_client_id == "" || can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.fetcher_app_client_id))
     error_message = "The fetcher_app_client_id must be a valid GUID format."
+  }
+}
+
+variable "snapshot_app_service_principal_object_id" {
+  description = "SaaS mode (optional): object ID of an existing service principal for Upwind's Snapshot app registration in the customer tenant. Provide this when the SP has already been created out-of-band (e.g. via admin consent / `az ad sp create`) and the Terraform runner lacks Microsoft Graph permissions to create it. When set, the module skips creating the service principal and assigns roles to this object ID directly; snapshot_app_client_id is then not required."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.snapshot_app_service_principal_object_id == "" || can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.snapshot_app_service_principal_object_id))
+    error_message = "The snapshot_app_service_principal_object_id must be a valid GUID format."
+  }
+}
+
+variable "fetcher_app_service_principal_object_id" {
+  description = "SaaS mode (optional): object ID of an existing service principal for Upwind's Fetcher app registration in the customer tenant. Provide this when the SP has already been created out-of-band (e.g. via admin consent / `az ad sp create`) and the Terraform runner lacks Microsoft Graph permissions to create it. When set, the module skips creating the service principal and assigns roles to this object ID directly; fetcher_app_client_id is then not required."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.fetcher_app_service_principal_object_id == "" || can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.fetcher_app_service_principal_object_id))
+    error_message = "The fetcher_app_service_principal_object_id must be a valid GUID format."
   }
 }
 
