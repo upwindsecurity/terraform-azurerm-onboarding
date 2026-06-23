@@ -10,6 +10,7 @@ data "http" "upwind_get_access_token_request" {
     var.upwind_region == "us" ? var.upwind_auth_endpoint :
     var.upwind_region == "eu" ? replace(var.upwind_auth_endpoint, ".upwind.", ".eu.upwind.") :
     var.upwind_region == "me" ? replace(var.upwind_auth_endpoint, ".upwind.", ".me.upwind.") :
+    var.upwind_region == "ap" ? replace(var.upwind_auth_endpoint, ".upwind.", ".me.upwind.") :
     var.upwind_auth_endpoint
   )
 
@@ -20,6 +21,7 @@ data "http" "upwind_get_access_token_request" {
   request_body = join("&", [
     "grant_type=client_credentials",
     format("audience=%s", var.upwind_region == "us" ? var.upwind_integration_endpoint :
+      var.upwind_region == "eu" ? replace(var.upwind_integration_endpoint, ".upwind.", ".eu.upwind.") :
       var.upwind_region == "eu" ? replace(var.upwind_integration_endpoint, ".upwind.", ".eu.upwind.") :
       var.upwind_region == "me" ? replace(var.upwind_integration_endpoint, ".upwind.", ".me.upwind.") :
       var.upwind_integration_endpoint
