@@ -10,9 +10,10 @@ locals {
     mg_id : "/providers/Microsoft.Management/managementGroups/${mg_id}"
   ]
 
-  # Create a map of existing organizational credentials
+  # Create a map of existing organizational credentials (empty in SaaS mode -
+  # the lookup is skipped along with the rest of the Upwind API calls).
   organizational_credentials = {
-    for cc in jsondecode(data.http.upwind_get_organizational_credentials_request.response_body) :
+    for cc in jsondecode(try(data.http.upwind_get_organizational_credentials_request[0].response_body, "[]")) :
     lower(cc.azureOrganizationId) => true
   }
 
@@ -73,6 +74,7 @@ locals {
   # Construct a map of role assignments using combinations of scopes and built-in roles.
   # This map is only created if there are valid scopes and roles to process.
   builtin_role_assignments = (
+    !var.saas_enabled &&
     length(local.effective_scopes) > 0 &&
     length(var.azure_roles) > 0
     ? {
@@ -90,6 +92,7 @@ locals {
 
   # Define the scopes for custom role assignments.
   custom_role_assignments = (
+    !var.saas_enabled &&
     length(var.azure_custom_role_permissions) > 0
     ? toset([
       for scope in local.effective_scopes :
@@ -105,8 +108,10 @@ locals {
     random_id.uid.hex,
   )
 
-  # Determine if we should create a new app or use existing
-  create_new_application = var.azure_application_client_id == null
+  # Determine if we should create a new app or use existing. SaaS onboarding
+  # creates no app registration at all (it consents to Upwind's multi-tenant
+  # app regs instead - see saas.tf), so this is false when saas_enabled.
+  create_new_application = var.azure_application_client_id == null && !var.saas_enabled
 
   # Generate a unique custom role name prefix.
   custom_role_name_prefix = format(
@@ -115,14 +120,16 @@ locals {
     random_id.uid.hex,
   )
 
-  # Only create credentials if there is a pending tenant and we're not in destroy mode
-  create_credentials = local.pending_tenant != null && var.create_organizational_credentials
+  # Only create credentials if there is a pending tenant and we're not in destroy
+  # mode (never in SaaS mode - secretless, no credential submission).
+  create_credentials = local.pending_tenant != null && var.create_organizational_credentials && !var.saas_enabled
 
-  # Get the service principal object ID (from either new or existing)
-  service_principal_object_id = local.create_new_application ? azuread_service_principal.this[0].object_id : var.azure_application_service_principal_object_id != null ? var.azure_application_service_principal_object_id : data.azuread_service_principal.existing[0].object_id
+  # Get the service principal object ID (from either new or existing). Null in
+  # SaaS mode - the self-hosted SP machinery is not used (see saas.tf).
+  service_principal_object_id = var.saas_enabled ? null : (local.create_new_application ? azuread_service_principal.this[0].object_id : var.azure_application_service_principal_object_id != null ? var.azure_application_service_principal_object_id : data.azuread_service_principal.existing[0].object_id)
 
-  # Get the application client ID (from either new or existing)
-  application_client_id = local.create_new_application ? azuread_application.this[0].client_id : var.azure_application_client_id
+  # Get the application client ID (from either new or existing). Null in SaaS mode.
+  application_client_id = var.saas_enabled ? null : (local.create_new_application ? azuread_application.this[0].client_id : var.azure_application_client_id)
 
   # For existing applications, assume the app owner has configured permissions
   needs_api_access = local.create_new_application && length(var.azure_application_msgraph_roles) > 0
@@ -202,7 +209,7 @@ resource "azuread_application_api_access" "msgraph" {
 # Skipped if a service principal object ID is provided
 # This is useful when MSGraph permissions cannot be configured for the TF runner App Registration
 data "azuread_service_principal" "existing" {
-  count     = local.create_new_application || var.azure_application_service_principal_object_id != null ? 0 : 1
+  count     = local.create_new_application || var.azure_application_service_principal_object_id != null || var.saas_enabled ? 0 : 1
   client_id = var.azure_application_client_id
 }
 
@@ -264,6 +271,8 @@ resource "azurerm_role_assignment" "custom" {
 }
 
 data "http" "upwind_get_organizational_credentials_request" {
+  count = var.saas_enabled ? 0 : 1
+
   method = "GET"
 
   url = format(
@@ -284,7 +293,7 @@ data "http" "upwind_get_organizational_credentials_request" {
   lifecycle {
     precondition {
       condition     = local.upwind_access_token != null
-      error_message = "Unable to obtain access token. Please verify your client ID and client secret. Response: ${data.http.upwind_get_access_token_request.response_body}."
+      error_message = "Unable to obtain access token. Please verify your client ID and client secret. Response: ${try(data.http.upwind_get_access_token_request[0].response_body, "")}."
     }
   }
 }
@@ -343,7 +352,7 @@ data "http" "upwind_create_organizational_credentials_request" {
   lifecycle {
     precondition {
       condition     = local.upwind_access_token != null
-      error_message = "Unable to obtain access token. Please verify your client ID and client secret. Response: ${data.http.upwind_get_access_token_request.response_body}."
+      error_message = "Unable to obtain access token. Please verify your client ID and client secret. Response: ${try(data.http.upwind_get_access_token_request[0].response_body, "")}."
     }
     postcondition {
       condition     = self.status_code == 200 || self.status_code == 201 || self.status_code == 409

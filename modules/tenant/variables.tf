@@ -6,21 +6,25 @@ variable "upwind_organization_id" {
 }
 
 variable "upwind_client_id" {
-  description = "The client ID used for authentication with the Upwind Authorization Service."
+  description = "The client ID used for authentication with the Upwind Authorization Service. Required for self-hosted onboarding; not used when saas_enabled is true (SaaS onboarding is secretless and makes no Upwind API call)."
   type        = string
+  default     = ""
+
   validation {
-    condition     = var.upwind_client_id != ""
-    error_message = "upwind_client_id must be provided and cannot be empty."
+    condition     = var.saas_enabled || var.upwind_client_id != ""
+    error_message = "upwind_client_id must be provided and cannot be empty for self-hosted onboarding (not required when saas_enabled = true)."
   }
 }
 
 variable "upwind_client_secret" {
-  description = "The client secret for authentication with the Upwind Authorization Service."
+  description = "The client secret for authentication with the Upwind Authorization Service. Required for self-hosted onboarding; not used when saas_enabled is true."
   type        = string
   sensitive   = true
+  default     = ""
+
   validation {
-    condition     = var.upwind_client_secret != ""
-    error_message = "upwind_client_secret must be provided and cannot be empty."
+    condition     = var.saas_enabled || var.upwind_client_secret != ""
+    error_message = "upwind_client_secret must be provided and cannot be empty for self-hosted onboarding (not required when saas_enabled = true)."
   }
 }
 
@@ -299,3 +303,57 @@ variable "create_organizational_credentials" {
   type        = bool
   default     = true
 }
+
+# region saas
+
+variable "saas_enabled" {
+  description = "Enable SaaS (provider-hosted, secretless) onboarding. When true, the customer tenant only consents to Upwind's multi-tenant Snapshot and Fetcher app registrations and assigns them scoped roles at management-group (tenant-root) scope. No app registration, Key Vault, managed identities, custom roles, scanner credentials, or Upwind API calls are created. Self-hosted resources are skipped. Defaults to false (self-hosted, unchanged)."
+  type        = bool
+  default     = false
+}
+
+variable "snapshot_app_client_id" {
+  description = "SaaS mode: client ID of Upwind's multi-tenant Snapshot app registration. Its service principal is materialized in the customer tenant and granted Reader + Disk Snapshot Contributor + Data Operator for Managed Disks at the tenant-root management group. Required when saas_enabled is true, unless snapshot_app_service_principal_object_id is provided."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.snapshot_app_client_id == "" || can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.snapshot_app_client_id))
+    error_message = "The snapshot_app_client_id must be a valid GUID format."
+  }
+}
+
+variable "fetcher_app_client_id" {
+  description = "SaaS mode: client ID of Upwind's multi-tenant Fetcher app registration. Its service principal is materialized in the customer tenant and granted Reader at the tenant-root management group. Required when saas_enabled is true, unless fetcher_app_service_principal_object_id is provided."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.fetcher_app_client_id == "" || can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.fetcher_app_client_id))
+    error_message = "The fetcher_app_client_id must be a valid GUID format."
+  }
+}
+
+variable "snapshot_app_service_principal_object_id" {
+  description = "SaaS mode (optional): object ID of an existing service principal for Upwind's Snapshot app registration in the customer tenant. Provide this when the SP has already been created out-of-band (e.g. via admin consent / `az ad sp create`) and the Terraform runner lacks Microsoft Graph permissions to create it. When set, the module skips creating the service principal and assigns roles to this object ID directly; snapshot_app_client_id is then not required."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.snapshot_app_service_principal_object_id == "" || can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.snapshot_app_service_principal_object_id))
+    error_message = "The snapshot_app_service_principal_object_id must be a valid GUID format."
+  }
+}
+
+variable "fetcher_app_service_principal_object_id" {
+  description = "SaaS mode (optional): object ID of an existing service principal for Upwind's Fetcher app registration in the customer tenant. Provide this when the SP has already been created out-of-band (e.g. via admin consent / `az ad sp create`) and the Terraform runner lacks Microsoft Graph permissions to create it. When set, the module skips creating the service principal and assigns roles to this object ID directly; fetcher_app_client_id is then not required."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.fetcher_app_service_principal_object_id == "" || can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.fetcher_app_service_principal_object_id))
+    error_message = "The fetcher_app_service_principal_object_id must be a valid GUID format."
+  }
+}
+
+# endregion saas

@@ -43,3 +43,13 @@ output "key_vault_log_analytics_workspace_id" {
   value       = var.key_vault_logging_enabled && local.cloudscanner_enabled ? azurerm_log_analytics_workspace.kv_logging[0].id : null
   description = "The ID of the Log Analytics Workspace used for Key Vault diagnostic logging, or null if logging is not enabled."
 }
+
+output "saas_snapshot_service_principal_object_id" {
+  description = "SaaS mode: object ID of the Snapshot app registration service principal - supplied via snapshot_app_service_principal_object_id, or created by the module (null when saas_enabled is false)."
+  value       = var.saas_enabled ? local.saas_snapshot_sp_object_id : null
+}
+
+output "saas_fetcher_service_principal_object_id" {
+  description = "SaaS mode: object ID of the Fetcher app registration service principal - supplied via fetcher_app_service_principal_object_id, or created by the module (null when saas_enabled is false)."
+  value       = var.saas_enabled ? local.saas_fetcher_sp_object_id : null
+}
