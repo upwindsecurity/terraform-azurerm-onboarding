@@ -3,6 +3,24 @@
 locals {
   resource_suffix = format("%s%s", var.upwind_organization_id, var.resource_suffix)
 
+  # Actions granted by CloudScannerTargetRole: target-disk read + begin-access +
+  # ACR pull. Shared between the self-hosted (outpost) worker identity and the
+  # SaaS Snapshot SP (see saas.tf) so the two paths never drift - mirrors
+  # targetRoleActions in the serverless shared-role-config.jsonc.
+  cloudscanner_target_role_actions = [
+    "Microsoft.Compute/virtualMachines/instanceView/read",
+    "Microsoft.Compute/virtualMachines/read",
+    "Microsoft.Compute/virtualMachineScaleSets/read",
+    "Microsoft.Compute/virtualMachineScaleSets/instanceView/read",
+    "Microsoft.Compute/virtualMachineScaleSets/virtualMachines/read",
+    "Microsoft.Compute/virtualMachineScaleSets/virtualMachines/instanceView/read",
+    "Microsoft.Compute/disks/read",
+    "Microsoft.Compute/diskEncryptionSets/read",
+    "Microsoft.Compute/disks/beginGetAccess/action",
+    "Microsoft.ContainerRegistry/registries/pull/read",
+    "Microsoft.Web/sites/config/list/action"
+  ]
+
   # Determine cloudscanner role assignment scopes based on include/exclude subscription parameters
   # Priority logic:
   # 1. If include list is provided: use only those subscriptions (overrides management groups)
@@ -269,19 +287,7 @@ resource "azurerm_role_definition" "target_role" {
   description = "Role for CloudScanner workers to snapshot virtual machines and pull acr images in this scope"
   scope       = each.value
   permissions {
-    actions = [
-      "Microsoft.Compute/virtualMachines/instanceView/read",
-      "Microsoft.Compute/virtualMachines/read",
-      "Microsoft.Compute/virtualMachineScaleSets/read",
-      "Microsoft.Compute/virtualMachineScaleSets/instanceView/read",
-      "Microsoft.Compute/virtualMachineScaleSets/virtualMachines/read",
-      "Microsoft.Compute/virtualMachineScaleSets/virtualMachines/instanceView/read",
-      "Microsoft.Compute/disks/read",
-      "Microsoft.Compute/diskEncryptionSets/read",
-      "Microsoft.Compute/disks/beginGetAccess/action",
-      "Microsoft.ContainerRegistry/registries/pull/read",
-      "Microsoft.Web/sites/config/list/action"
-    ]
+    actions = local.cloudscanner_target_role_actions
   }
 }
 

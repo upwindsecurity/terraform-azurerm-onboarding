@@ -183,6 +183,7 @@ variable "azure_custom_role_permissions" {
   description = "List of custom permissions that should be granted to the service principal through a custom role."
   type        = list(string)
   default = [
+    "Microsoft.Web/sites/host/listkeys/action",
     "Microsoft.Web/sites/config/list/Action",
   ]
 }
@@ -313,7 +314,7 @@ variable "saas_enabled" {
 }
 
 variable "snapshot_app_client_id" {
-  description = "SaaS mode: client ID of Upwind's multi-tenant Snapshot app registration. Its service principal is materialized in the customer tenant and granted Reader + Disk Snapshot Contributor + Data Operator for Managed Disks at the tenant-root management group. Required when saas_enabled is true, unless snapshot_app_service_principal_object_id is provided."
+  description = "SaaS mode: client ID of Upwind's multi-tenant Snapshot app registration. Its service principal is materialized in the customer tenant and granted, at the tenant-root management group, the outpost worker role set: Reader + Disk Snapshot Contributor + Data Operator for Managed Disks + a CloudScannerTargetRole custom role + Storage Blob/File data-plane readers. Required when saas_enabled is true, unless snapshot_app_service_principal_object_id is provided."
   type        = string
   default     = ""
 
@@ -324,7 +325,7 @@ variable "snapshot_app_client_id" {
 }
 
 variable "fetcher_app_client_id" {
-  description = "SaaS mode: client ID of Upwind's multi-tenant Fetcher app registration. Its service principal is materialized in the customer tenant and granted Reader at the tenant-root management group. Required when saas_enabled is true, unless fetcher_app_service_principal_object_id is provided."
+  description = "SaaS mode: client ID of Upwind's multi-tenant Fetcher app registration. Its service principal is materialized in the customer tenant and granted, at the tenant-root management group, the outpost app-registration role set: the built-in read roles (var.azure_roles) + a custom role (var.azure_custom_role_permissions). Required when saas_enabled is true, unless fetcher_app_service_principal_object_id is provided."
   type        = string
   default     = ""
 
