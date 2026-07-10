@@ -1,7 +1,8 @@
 locals {
   # This variable may be marked as sensitive if the scanner_client_id variable is sourced from a sensitive data source (e.g., Key Vault)
   # Always disabled in SaaS mode (no customer-side scanner infrastructure).
-  cloudscanner_enabled_sensitive = !var.saas_enabled && var.azure_orchestrator_subscription_id != "" && var.scanner_client_id != ""
+  # In private network mode the customer supplies the scanner secrets directly to the Key Vault, so scanner_client_id is not required to enable CloudScanner.
+  cloudscanner_enabled_sensitive = !var.saas_enabled && var.azure_orchestrator_subscription_id != "" && (var.scanner_client_id != "" || var.key_vault_private_network)
 
   # Remove sensitive marking if present (e.g., from Key Vault data source), otherwise use value as-is
   # This handles both plaintext and sensitive-marked values gracefully

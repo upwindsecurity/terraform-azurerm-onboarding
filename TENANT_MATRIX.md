@@ -48,6 +48,13 @@ Each option is demonstrated in a dedicated example.
   * **Required**: Must provide IP rules when deny traffic is enabled
   * Example: [`examples/tenant-keyvault-deny/`](examples/tenant-keyvault-deny/)
 
+* **Private networking** - Fully disable public network access on the Key Vault
+  * Variable: `key_vault_private_network = true`
+  * **Note**: Terraform cannot write to a private vault, so you must add the
+    `upwind-client-id` and `upwind-client-secret` secrets manually (scanner credentials are not passed to Terraform)
+  * Mutually exclusive with `key_vault_deny_traffic`
+  * Example: [`examples/tenant-keyvault-private/`](examples/tenant-keyvault-private/)
+
 * **Allow traffic** - Default, allow all traffic
   * Variable: `key_vault_deny_traffic = false` (default)
   * Example: [`examples/tenant-basic/`](examples/tenant-basic/)
@@ -63,4 +70,5 @@ Each option is demonstrated in a dedicated example.
 | [tenant-no-cloudscanner](examples/tenant-no-cloudscanner/) | Tenant | ❌ | ❌ | N/A |
 | [tenant-with-tags](examples/tenant-with-tags/) | Tenant | ✅ | ✅ | Allow |
 | [tenant-keyvault-deny](examples/tenant-keyvault-deny/) | Tenant | ✅ | ❌ | Deny |
+| [tenant-keyvault-private](examples/tenant-keyvault-private/) | Tenant | ✅ | ❌ | Private |
 | [tenant-advanced](examples/tenant-advanced/) | Exclude Subs | ✅ | ✅ | Deny |
