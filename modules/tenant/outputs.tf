@@ -39,6 +39,11 @@ output "pending_tenant" {
   description = "The tenant ID that is pending onboarding, or null if already onboarded."
 }
 
+output "key_vault_name" {
+  description = "The name of the CloudScanner Key Vault, or null if CloudScanner is not enabled. When key_vault_private_network is true, add the scanner credentials from the Upwind console to this vault as secrets named 'upwind-client-id' and 'upwind-client-secret' (names must be exact)."
+  value       = local.cloudscanner_enabled ? azurerm_key_vault.orgwide_key_vault[0].name : null
+}
+
 output "key_vault_log_analytics_workspace_id" {
   value       = var.key_vault_logging_enabled && local.cloudscanner_enabled ? azurerm_log_analytics_workspace.kv_logging[0].id : null
   description = "The ID of the Log Analytics Workspace used for Key Vault diagnostic logging, or null if logging is not enabled."
