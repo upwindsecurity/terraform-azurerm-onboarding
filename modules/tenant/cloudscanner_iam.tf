@@ -3,6 +3,13 @@
 locals {
   resource_suffix = format("%s%s", var.upwind_organization_id, var.resource_suffix)
 
+  # DSPM (data-plane blob read) is enabled only when the customer opts in via
+  # upwind_feature_dspm_enabled AND has not set the legacy disable_function_scanning
+  # opt-out. Either control can turn DSPM off; default is on. Used to gate the
+  # Storage Blob/File data readers (self-hosted below and SaaS in saas.tf) and the
+  # SaaS DSPM marker role.
+  dspm_enabled = var.upwind_feature_dspm_enabled && !var.disable_function_scanning
+
   # Actions granted by CloudScannerTargetRole: target-disk read + begin-access +
   # ACR pull. Shared between the self-hosted (outpost) worker identity and the
   # SaaS Snapshot SP (see saas.tf) so the two paths never drift - mirrors
@@ -144,7 +151,7 @@ resource "azurerm_role_assignment" "cloudscanner_worker" {
 # If function_storage_accounts is provided, assign to specific storage accounts only.
 # Otherwise, assign to all resources in cloudscanner scope.
 resource "azurerm_role_assignment" "storage_reader" {
-  for_each = (local.cloudscanner_enabled && !var.disable_function_scanning) ? (
+  for_each = (local.cloudscanner_enabled && local.dspm_enabled) ? (
     length(var.function_storage_accounts) > 0 ?
     toset(var.function_storage_accounts) :
     toset(local.cloudscanner_scopes)
@@ -158,7 +165,7 @@ resource "azurerm_role_assignment" "storage_reader" {
 # If function_storage_accounts is provided, assign to specific storage accounts only.
 # Otherwise, assign to all resources in cloudscanner scope.
 resource "azurerm_role_assignment" "storage_file_reader" {
-  for_each = (local.cloudscanner_enabled && !var.disable_function_scanning) ? (
+  for_each = (local.cloudscanner_enabled && local.dspm_enabled) ? (
     length(var.function_storage_accounts) > 0 ?
     toset(var.function_storage_accounts) :
     toset(local.cloudscanner_scopes)
