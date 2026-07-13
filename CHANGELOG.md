@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.13.1](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.13.0...v1.13.1) (2026-07-13)
+
+### Bug Fixes
+
+* **UP-3155:** wait for kv admin role propagation before writing secrets ([#84](https://github.com/upwindsecurity/terraform-azurerm-onboarding/issues/84)) ([6455214](https://github.com/upwindsecurity/terraform-azurerm-onboarding/commit/6455214085b1994f79d5680917d7c5f2e268c85a))
+
 ## [1.3.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.2.0...v1.3.0) (2025-08-22)
 
 ### Features
