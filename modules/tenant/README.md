@@ -21,11 +21,11 @@ seamlessly connect their entire tenant for comprehensive monitoring and security
 
 | Name | Version |
 | ---- | ------- |
-| <a name="provider_azuread"></a> [azuread](#provider\_azuread) | >= 2.53 |
-| <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | >= 4.42 |
-| <a name="provider_http"></a> [http](#provider\_http) | >= 3.4 |
-| <a name="provider_random"></a> [random](#provider\_random) | >= 3.5 |
-| <a name="provider_time"></a> [time](#provider\_time) | >= 0.8 |
+| <a name="provider_azuread"></a> [azuread](#provider\_azuread) | 3.9.0 |
+| <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 4.80.0 |
+| <a name="provider_http"></a> [http](#provider\_http) | 3.6.0 |
+| <a name="provider_random"></a> [random](#provider\_random) | 3.9.0 |
+| <a name="provider_time"></a> [time](#provider\_time) | 0.14.0 |
 
 ## Modules
 
@@ -48,6 +48,7 @@ No modules.
 | [azurerm_monitor_diagnostic_setting.kv_diagnostics](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/monitor_diagnostic_setting) | resource |
 | [azurerm_private_dns_zone.orgwide_keyvault_dns_zone](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/private_dns_zone) | resource |
 | [azurerm_resource_group.orgwide_resource_group](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/resource_group) | resource |
+| [azurerm_resource_group.saas_snapshots](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/resource_group) | resource |
 | [azurerm_role_assignment.app_service_scm_bearer_reader](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
 | [azurerm_role_assignment.builtin](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
 | [azurerm_role_assignment.cloudscanner_scaler](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
@@ -63,6 +64,7 @@ No modules.
 | [azurerm_role_assignment.saas_snapshot](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
 | [azurerm_role_assignment.saas_snapshot_target_role](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
 | [azurerm_role_assignment.saas_snapshot_worker](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
+| [azurerm_role_assignment.saas_snapshot_write](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
 | [azurerm_role_assignment.storage_file_reader](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
 | [azurerm_role_assignment.storage_reader](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
 | [azurerm_role_assignment.target_role_assignment](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
@@ -84,6 +86,7 @@ No modules.
 | [time_sleep.cloudscanner_scaler_role_definition_wait](https://registry.terraform.io/providers/hashicorp/time/latest/docs/resources/sleep) | resource |
 | [time_sleep.cloudscanner_worker_role_definition_wait](https://registry.terraform.io/providers/hashicorp/time/latest/docs/resources/sleep) | resource |
 | [time_sleep.deployer_role_definition_wait](https://registry.terraform.io/providers/hashicorp/time/latest/docs/resources/sleep) | resource |
+| [time_sleep.saas_fetcher_custom_role_wait](https://registry.terraform.io/providers/hashicorp/time/latest/docs/resources/sleep) | resource |
 | [time_sleep.saas_snapshot_target_role_wait](https://registry.terraform.io/providers/hashicorp/time/latest/docs/resources/sleep) | resource |
 | [time_sleep.target_role_definition_wait](https://registry.terraform.io/providers/hashicorp/time/latest/docs/resources/sleep) | resource |
 | [azuread_application_published_app_ids.well_known](https://registry.terraform.io/providers/hashicorp/azuread/latest/docs/data-sources/application_published_app_ids) | data source |
@@ -119,6 +122,7 @@ No modules.
 | <a name="input_cloudscanner_exclude_subscriptions"></a> [cloudscanner\_exclude\_subscriptions](#input\_cloudscanner\_exclude\_subscriptions) | Optional list of subscription IDs to exclude from cloudscanner managed identity role assignments. If provided, cloudscanner roles will be assigned at the subscription level to all tenant subscriptions except these (instead of at management group level). Mutually exclusive with cloudscanner\_include\_subscriptions. Note: When used with azure\_management\_group\_ids, role assignments switch from management-group-level to subscription-level for all tenant subscriptions (excluding specified ones). This will enable us to exclude subscriptions from the scanning process. Cloudscanner scope should be a subset of cloudapi scope. | `list(string)` | `[]` | no |
 | <a name="input_cloudscanner_include_subscriptions"></a> [cloudscanner\_include\_subscriptions](#input\_cloudscanner\_include\_subscriptions) | Optional list of subscription IDs to include for cloudscanner managed identity role assignments. If provided, cloudscanner roles will only be assigned to these subscriptions. Mutually exclusive with cloudscanner\_exclude\_subscriptions. Can be combined with azure\_management\_group\_ids or azure\_tenant\_id. This will enable us to scan resources in these subscriptions. Cloudscanner scope should be a subset of cloudapi scope. | `list(string)` | `[]` | no |
 | <a name="input_create_organizational_credentials"></a> [create\_organizational\_credentials](#input\_create\_organizational\_credentials) | Set to false to skip sending organizational credentials to Upwind. The default value for this variable should be set to true for onboarding deployments using 'terraform init && terraform apply' and set to false when offboarding using 'terraform destroy'. It is essential that it is reset appropriately for subsequent deploy / destroy attempts. | `bool` | `true` | no |
+| <a name="input_customer_snapshot_resource_group"></a> [customer\_snapshot\_resource\_group](#input\_customer\_snapshot\_resource\_group) | SaaS mode: name of the central snapshots resource group created in the orchestrator subscription (azure\_orchestrator\_subscription\_id). The Snapshot SP's snapshot write/delete roles (Disk Snapshot Contributor + Data Operator for Managed Disks) are confined to this RG instead of being granted tenant-wide. Defaults to upwind-cs-rg-<upwind\_organization\_id> when empty. | `string` | `""` | no |
 | <a name="input_disable_function_scanning"></a> [disable\_function\_scanning](#input\_disable\_function\_scanning) | If set to true will disable Storage Blob Data Reader role assignment for upwind-cs-vmss-identity | `bool` | `false` | no |
 | <a name="input_fetcher_app_client_id"></a> [fetcher\_app\_client\_id](#input\_fetcher\_app\_client\_id) | SaaS mode: client ID of Upwind's multi-tenant Fetcher app registration. Its service principal is materialized in the customer tenant and granted, at the tenant-root management group, the outpost app-registration role set: the built-in read roles (var.azure\_roles) + a custom role (var.azure\_custom\_role\_permissions). Required when saas\_enabled is true, unless fetcher\_app\_service\_principal\_object\_id is provided. | `string` | `""` | no |
 | <a name="input_fetcher_app_service_principal_object_id"></a> [fetcher\_app\_service\_principal\_object\_id](#input\_fetcher\_app\_service\_principal\_object\_id) | SaaS mode (optional): object ID of an existing service principal for Upwind's Fetcher app registration in the customer tenant. Provide this when the SP has already been created out-of-band (e.g. via admin consent / `az ad sp create`) and the Terraform runner lacks Microsoft Graph permissions to create it. When set, the module skips creating the service principal and assigns roles to this object ID directly; fetcher\_app\_client\_id is then not required. | `string` | `""` | no |
@@ -132,7 +136,7 @@ No modules.
 | <a name="input_scanner_client_id"></a> [scanner\_client\_id](#input\_scanner\_client\_id) | The client ID used for authentication with the Upwind CloudScanner Service. | `string` | `""` | no |
 | <a name="input_scanner_client_secret"></a> [scanner\_client\_secret](#input\_scanner\_client\_secret) | The client secret for authentication with the Upwind CloudScanner Service. | `string` | `""` | no |
 | <a name="input_skip_app_service_provider_registration"></a> [skip\_app\_service\_provider\_registration](#input\_skip\_app\_service\_provider\_registration) | DEPRECATED: We have removed the need for this variable. Set to true to skip the Microsoft.App provider registration, recommended if running on Windows. If resource\_providers\_to\_register is set to ["Microsoft.App"] on the azurerm provider, this can safely be set to true. | `bool` | `false` | no |
-| <a name="input_snapshot_app_client_id"></a> [snapshot\_app\_client\_id](#input\_snapshot\_app\_client\_id) | SaaS mode: client ID of Upwind's multi-tenant Snapshot app registration. Its service principal is materialized in the customer tenant and granted, at the tenant-root management group, the outpost worker role set: Reader + Disk Snapshot Contributor + Data Operator for Managed Disks + a CloudScannerTargetRole custom role + Storage Blob/File data-plane readers. Required when saas\_enabled is true, unless snapshot\_app\_service\_principal\_object\_id is provided. | `string` | `""` | no |
+| <a name="input_snapshot_app_client_id"></a> [snapshot\_app\_client\_id](#input\_snapshot\_app\_client\_id) | SaaS mode: client ID of Upwind's multi-tenant Snapshot app registration. Its service principal is materialized in the customer tenant and granted read-only roles at the tenant-root management group (Reader + a CloudScannerTargetRole custom role + Storage Blob/File data-plane readers), plus snapshot write/delete (Disk Snapshot Contributor + Data Operator for Managed Disks) confined to the central snapshots resource group in the orchestrator subscription (see customer\_snapshot\_resource\_group). Required when saas\_enabled is true, unless snapshot\_app\_service\_principal\_object\_id is provided. | `string` | `""` | no |
 | <a name="input_snapshot_app_service_principal_object_id"></a> [snapshot\_app\_service\_principal\_object\_id](#input\_snapshot\_app\_service\_principal\_object\_id) | SaaS mode (optional): object ID of an existing service principal for Upwind's Snapshot app registration in the customer tenant. Provide this when the SP has already been created out-of-band (e.g. via admin consent / `az ad sp create`) and the Terraform runner lacks Microsoft Graph permissions to create it. When set, the module skips creating the service principal and assigns roles to this object ID directly; snapshot\_app\_client\_id is then not required. | `string` | `""` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags to apply to all resources. | `map(string)` | `{}` | no |
 | <a name="input_upwind_auth_endpoint"></a> [upwind\_auth\_endpoint](#input\_upwind\_auth\_endpoint) | The Authentication API endpoint. | `string` | `"https://auth.upwind.io"` | no |

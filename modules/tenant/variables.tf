@@ -314,7 +314,7 @@ variable "saas_enabled" {
 }
 
 variable "snapshot_app_client_id" {
-  description = "SaaS mode: client ID of Upwind's multi-tenant Snapshot app registration. Its service principal is materialized in the customer tenant and granted, at the tenant-root management group, the outpost worker role set: Reader + Disk Snapshot Contributor + Data Operator for Managed Disks + a CloudScannerTargetRole custom role + Storage Blob/File data-plane readers. Required when saas_enabled is true, unless snapshot_app_service_principal_object_id is provided."
+  description = "SaaS mode: client ID of Upwind's multi-tenant Snapshot app registration. Its service principal is materialized in the customer tenant and granted read-only roles at the tenant-root management group (Reader + a CloudScannerTargetRole custom role + Storage Blob/File data-plane readers), plus snapshot write/delete (Disk Snapshot Contributor + Data Operator for Managed Disks) confined to the central snapshots resource group in the orchestrator subscription (see customer_snapshot_resource_group). Required when saas_enabled is true, unless snapshot_app_service_principal_object_id is provided."
   type        = string
   default     = ""
 
@@ -355,6 +355,12 @@ variable "fetcher_app_service_principal_object_id" {
     condition     = var.fetcher_app_service_principal_object_id == "" || can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.fetcher_app_service_principal_object_id))
     error_message = "The fetcher_app_service_principal_object_id must be a valid GUID format."
   }
+}
+
+variable "customer_snapshot_resource_group" {
+  description = "SaaS mode: name of the central snapshots resource group created in the orchestrator subscription (azure_orchestrator_subscription_id). The Snapshot SP's snapshot write/delete roles (Disk Snapshot Contributor + Data Operator for Managed Disks) are confined to this RG instead of being granted tenant-wide. Defaults to upwind-cs-rg-<upwind_organization_id> when empty."
+  type        = string
+  default     = ""
 }
 
 # endregion saas

@@ -15,16 +15,27 @@
 #   service principal (app registration) -> Fetcher SP  (read-level inventory)
 #   worker identity                      -> Snapshot SP (snapshotting)
 #
-# The worker creates each snapshot in the target disk's own subscription/RG, so
-# the Snapshot SP is granted tenant-wide write for first delivery. Narrowing the
-# write grant to a least-privilege boundary is a tracked follow-up.
+# Snapshot write/delete is NOT granted tenant-wide. Only non-destructive roles are
+# assigned at the management group (Reader, read-only CloudScannerTargetRole, worker
+# storage readers, and the Fetcher's read roles). The Snapshot SP's snapshot
+# write/delete (Disk Snapshot Contributor + Data Operator) is confined to a single
+# central snapshots resource group created in the orchestrator subscription. The
+# worker creates each snapshot in that RG, sourcing the customer disk it reads via
+# the MG-wide read grant.
 
 locals {
   # --- Snapshot SP (mirrors the outpost worker identity) ---
 
-  # SaaS-specific built-in roles: snapshot CRUD + cross-subscription disk read.
-  # The custom CloudScannerTargetRole is granted separately below.
-  saas_snapshot_roles = ["Reader", "Disk Snapshot Contributor", "Data Operator for Managed Disks"]
+  # Broad, read-only built-in role at MG scope. Snapshot write/delete is NOT here -
+  # it is confined to the central snapshots RG (see saas_snapshot_write_roles below).
+  saas_snapshot_roles = ["Reader"]
+
+  # Snapshot write/delete roles, assigned ONLY on the central snapshots RG in the
+  # orchestrator subscription (never tenant-wide).
+  saas_snapshot_write_roles = ["Disk Snapshot Contributor", "Data Operator for Managed Disks"]
+
+  # Central snapshots RG name (orchestrator subscription). Convention: upwind-cs-rg-<orgId>.
+  saas_snapshot_resource_group_name = var.customer_snapshot_resource_group != "" ? var.customer_snapshot_resource_group : "upwind-cs-rg-${var.upwind_organization_id}"
 
   # Worker data-plane read roles - mirrors the outpost storage_reader /
   # storage_file_reader assignments (bicep workerBuiltinRoles). Assigned at MG
@@ -57,6 +68,9 @@ locals {
     for pair in setproduct(local.normalized_management_group_ids, local.saas_snapshot_worker_roles) :
     "${pair[0]}|${pair[1]}" => { scope = pair[0], role = pair[1] }
   } : {}
+
+  # Snapshot SP write/delete roles, keyed by role - scoped to the central RG only.
+  saas_snapshot_write_role_assignments = var.saas_enabled ? { for role in local.saas_snapshot_write_roles : role => role } : {}
 
   # Snapshot SP CloudScannerTargetRole scopes (target-disk read + begin-access +
   # ACR pull - identical actions to the outpost worker's target role).
@@ -108,13 +122,33 @@ resource "azuread_service_principal" "saas_fetcher" {
 
 # region Snapshot SP roles
 
-# Snapshot SP -> Reader + Disk Snapshot Contributor + Data Operator at MG scope.
+# Snapshot SP -> Reader (read-only) at MG scope.
 resource "azurerm_role_assignment" "saas_snapshot" {
   for_each = local.saas_snapshot_role_assignments
 
   principal_id         = local.saas_snapshot_sp_object_id
   role_definition_name = each.value.role
   scope                = each.value.scope
+}
+
+# Central snapshots resource group in the orchestrator subscription (the azurerm
+# provider's subscription). The only scope with snapshot write/delete. On destroy
+# this RG - and every snapshot the worker created in it - is removed.
+resource "azurerm_resource_group" "saas_snapshots" {
+  count    = var.saas_enabled ? 1 : 0
+  name     = local.saas_snapshot_resource_group_name
+  location = var.azure_cloudscanner_location
+  tags     = var.tags
+}
+
+# Snapshot SP -> Disk Snapshot Contributor + Data Operator, scoped to the central
+# snapshots RG only (never tenant-wide). This is the sole destructive grant.
+resource "azurerm_role_assignment" "saas_snapshot_write" {
+  for_each = local.saas_snapshot_write_role_assignments
+
+  principal_id         = local.saas_snapshot_sp_object_id
+  role_definition_name = each.value
+  scope                = azurerm_resource_group.saas_snapshots[0].id
 }
 
 # Snapshot SP -> Storage Blob / File data-plane readers at MG scope
@@ -182,6 +216,13 @@ resource "azurerm_role_definition" "saas_fetcher_custom_role" {
   }
 }
 
+# Wait for the custom role definitions to propagate before assigning them.
+resource "time_sleep" "saas_fetcher_custom_role_wait" {
+  count           = var.saas_enabled ? 1 : 0
+  depends_on      = [azurerm_role_definition.saas_fetcher_custom_role]
+  create_duration = var.azure_role_definition_wait_time
+}
+
 # Fetcher SP -> custom role at each MG scope.
 resource "azurerm_role_assignment" "saas_fetcher_custom_role" {
   for_each = azurerm_role_definition.saas_fetcher_custom_role
@@ -189,6 +230,7 @@ resource "azurerm_role_assignment" "saas_fetcher_custom_role" {
   role_definition_id = each.value.role_definition_resource_id
   principal_id       = local.saas_fetcher_sp_object_id
   scope              = each.value.scope
+  depends_on         = [time_sleep.saas_fetcher_custom_role_wait[0]]
 }
 
 # endregion

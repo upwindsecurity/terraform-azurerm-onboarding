@@ -29,6 +29,11 @@ module "upwind_integration_azure_onboarding" {
   snapshot_app_client_id = "11111111-1111-1111-1111-111111111111" # Upwind Snapshot app registration
   fetcher_app_client_id  = "22222222-2222-2222-2222-222222222222" # Upwind Fetcher app registration
 
+  # Central snapshots resource group, created in the orchestrator subscription.
+  # Snapshot write/delete is confined to this RG (not tenant-wide). Optional -
+  # defaults to upwind-cs-rg-<upwind_organization_id> when omitted.
+  customer_snapshot_resource_group = "upwind-cs-rg-org_example12345"
+
   # Azure configuration - tenant-root scope (roles inherited by all subscriptions)
   azure_tenant_id                    = local.azure_tenant_id
   azure_orchestrator_subscription_id = local.azure_orchestrator_subscription_id
