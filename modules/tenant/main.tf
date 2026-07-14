@@ -108,10 +108,20 @@ locals {
     random_id.uid.hex,
   )
 
+  # Outpost WIF (UP-3278): secretless self-hosted onboarding. The auth identity is the
+  # org's Upwind-minted WIF app registration; this tenant only materializes its consented
+  # service principal and grants it the self-hosted role set. No app registration, no
+  # client secret, no credential submission. Not applicable in SaaS mode (already
+  # secretless via its own app regs).
+  wif_enabled      = var.use_workload_identity_federation && !var.saas_enabled
+  create_wif_sp    = local.wif_enabled && var.wif_app_service_principal_object_id == ""
+  wif_sp_object_id = var.wif_app_service_principal_object_id != "" ? var.wif_app_service_principal_object_id : one(azuread_service_principal.wif[*].object_id)
+
   # Determine if we should create a new app or use existing. SaaS onboarding
   # creates no app registration at all (it consents to Upwind's multi-tenant
-  # app regs instead - see saas.tf), so this is false when saas_enabled.
-  create_new_application = var.azure_application_client_id == null && !var.saas_enabled
+  # app regs instead - see saas.tf), and WIF mode likewise consents to the
+  # Upwind-minted WIF app reg, so this is false for both.
+  create_new_application = var.azure_application_client_id == null && !var.saas_enabled && !local.wif_enabled
 
   # Generate a unique custom role name prefix.
   custom_role_name_prefix = format(
@@ -121,15 +131,19 @@ locals {
   )
 
   # Only create credentials if there is a pending tenant and we're not in destroy
-  # mode (never in SaaS mode - secretless, no credential submission).
-  create_credentials = local.pending_tenant != null && var.create_organizational_credentials && !var.saas_enabled
+  # mode. Never in SaaS mode (secretless, no credential submission) and never in
+  # WIF mode: discovery classifies an org as WIF by the ABSENCE of a stored
+  # credential row, so submitting one (even without a secret) would break it.
+  create_credentials = local.pending_tenant != null && var.create_organizational_credentials && !var.saas_enabled && !local.wif_enabled
 
-  # Get the service principal object ID (from either new or existing). Null in
-  # SaaS mode - the self-hosted SP machinery is not used (see saas.tf).
-  service_principal_object_id = var.saas_enabled ? null : (local.create_new_application ? azuread_service_principal.this[0].object_id : var.azure_application_service_principal_object_id != null ? var.azure_application_service_principal_object_id : data.azuread_service_principal.existing[0].object_id)
+  # Get the service principal object ID: the WIF SP in WIF mode, otherwise from
+  # either the new or existing application. Null in SaaS mode - the self-hosted
+  # SP machinery is not used (see saas.tf).
+  service_principal_object_id = var.saas_enabled ? null : (local.wif_enabled ? local.wif_sp_object_id : (local.create_new_application ? azuread_service_principal.this[0].object_id : var.azure_application_service_principal_object_id != null ? var.azure_application_service_principal_object_id : data.azuread_service_principal.existing[0].object_id))
 
-  # Get the application client ID (from either new or existing). Null in SaaS mode.
-  application_client_id = var.saas_enabled ? null : (local.create_new_application ? azuread_application.this[0].client_id : var.azure_application_client_id)
+  # Get the application client ID (the WIF app reg in WIF mode, otherwise new or
+  # existing application). Null in SaaS mode.
+  application_client_id = var.saas_enabled ? null : (local.wif_enabled ? var.wif_app_client_id : (local.create_new_application ? azuread_application.this[0].client_id : var.azure_application_client_id))
 
   # For existing applications, assume the app owner has configured permissions
   needs_api_access = local.create_new_application && length(var.azure_application_msgraph_roles) > 0
@@ -230,6 +244,24 @@ resource "azuread_application_password" "client_secret" {
 
   application_id = azuread_application.this[0].id
   end_date       = "2999-12-31T23:59:59Z"
+}
+
+# WIF mode (UP-3278): materialize the consented service principal for the org's
+# Upwind-minted WIF app registration (skipped when
+# wif_app_service_principal_object_id is supplied). Mirrors the SaaS fetcher SP
+# pattern - the app reg itself lives in Upwind's tenant, carrying the
+# azure-auth-service federated credential; this tenant only trusts its SP.
+resource "azuread_service_principal" "wif" {
+  count        = local.create_wif_sp ? 1 : 0
+  client_id    = var.wif_app_client_id
+  use_existing = true
+
+  lifecycle {
+    precondition {
+      condition     = var.wif_app_client_id != ""
+      error_message = "use_workload_identity_federation requires wif_app_client_id (to create the SP) or wif_app_service_principal_object_id (to use an existing one). Both are available in the Upwind console after adding the Azure organization; alternatively set use_workload_identity_federation = false for the legacy client-secret flow."
+    }
+  }
 }
 
 # Assign built-in roles to the service principal.
