@@ -37,6 +37,7 @@ Additional configuration options:
 
 - **[tenant-with-tags](tenant-with-tags/)** - Apply custom tags to all resources
 - **[tenant-keyvault-deny](tenant-keyvault-deny/)** - Secure Key Vault with network restrictions
+- **[tenant-keyvault-private](tenant-keyvault-private/)** - Fully private Key Vault (secrets added manually)
 
 ### SaaS (Provider-Hosted) Examples
 
@@ -62,6 +63,7 @@ Production-ready configurations:
 | [tenant-no-cloudscanner](tenant-no-cloudscanner/) | Tenant | ❌ | ❌ | N/A | Discovery only |
 | [tenant-with-tags](tenant-with-tags/) | Tenant | ✅ | ✅ | Allow | Compliance/cost tracking |
 | [tenant-keyvault-deny](tenant-keyvault-deny/) | Tenant | ✅ | ❌ | Deny | Enhanced security |
+| [tenant-keyvault-private](tenant-keyvault-private/) | Tenant | ✅ | ❌ | Private | No public vault access |
 | [tenant-advanced](tenant-advanced/) | Exclude Subs | ✅ | ✅ | Deny | Production deployment |
 | [tenant-saas](tenant-saas/) | Tenant | N/A (provider-hosted) | ❌ | N/A | Secretless SaaS onboarding |
 | [tenant-saas-existing-sp](tenant-saas-existing-sp/) | Tenant | N/A (provider-hosted) | ❌ | N/A | SaaS with pre-created SPs |
@@ -86,7 +88,8 @@ Production-ready configurations:
 → Use [tenant-with-tags](tenant-with-tags/)
 
 **Security requirements for Key Vault?**
-→ Use [tenant-keyvault-deny](tenant-keyvault-deny/)
+→ Use [tenant-keyvault-deny](tenant-keyvault-deny/) for IP-restricted access,
+or [tenant-keyvault-private](tenant-keyvault-private/) for a fully private vault
 
 **Production deployment with multiple features?**
 → Use [tenant-advanced](tenant-advanced/)
@@ -163,12 +166,20 @@ tags = {
 
 ### Key Vault Security
 
+Restrict access to specific IPs (Terraform still writes the secrets from an allowed IP):
+
 ```hcl
 key_vault_deny_traffic = true
 key_vault_ip_rules = [
   "203.0.113.42",      # Your IP
   "198.51.100.0/24"    # Office network
 ]
+```
+
+Or fully disable public network access (you add the scanner secrets manually afterwards):
+
+```hcl
+key_vault_private_network = true
 ```
 
 ## Prerequisites

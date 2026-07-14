@@ -278,6 +278,17 @@ variable "key_vault_ip_rules" {
   default     = []
 }
 
+variable "key_vault_private_network" {
+  type        = bool
+  description = "Whether to provision the Key Vault with public network access fully disabled (private networking). When true, Terraform cannot reach the vault to write secrets, so the module will NOT create the 'upwind-client-id' and 'upwind-client-secret' secrets - you must add them manually (see the key_vault_name output). CloudScanner infrastructure is still provisioned without needing scanner_client_id/scanner_client_secret. Cannot be combined with key_vault_deny_traffic."
+  default     = false
+
+  validation {
+    condition     = !(var.key_vault_private_network && var.key_vault_deny_traffic)
+    error_message = "key_vault_private_network and key_vault_deny_traffic are mutually exclusive. Use key_vault_private_network for a fully private vault, or key_vault_deny_traffic with key_vault_ip_rules for IP-restricted public access."
+  }
+}
+
 variable "key_vault_logging_enabled" {
   type        = bool
   description = "Whether to enable diagnostic logging for the Key Vault. When true, creates a Log Analytics Workspace and configures diagnostic settings to capture AuditEvent logs and AllMetrics."

@@ -19,6 +19,10 @@ resource "azurerm_key_vault" "orgwide_key_vault" {
   soft_delete_retention_days = 7
   purge_protection_enabled   = true
 
+  # Fully disable public network access when running in private network mode.
+  # In that mode Terraform cannot reach the vault, so the scanner secrets are added manually by the customer.
+  public_network_access_enabled = !var.key_vault_private_network
+
   # Deny public access if key_vault_deny_traffic is true
   dynamic "network_acls" {
     for_each = var.key_vault_deny_traffic ? [1] : []
@@ -32,13 +36,13 @@ resource "azurerm_key_vault" "orgwide_key_vault" {
   tags = merge(var.tags, {
     "UpwindComponent"  = "CloudScanner"
     "UpwindOrgId"      = var.upwind_organization_id
-    "DenyPublicAccess" = var.key_vault_deny_traffic ? "true" : "false"
+    "DenyPublicAccess" = var.key_vault_deny_traffic || var.key_vault_private_network ? "true" : "false"
   })
 }
 
 # Create private DNS zone for Key Vault, dns links will be added per cloudscanner deployment
 resource "azurerm_private_dns_zone" "orgwide_keyvault_dns_zone" {
-  count               = local.cloudscanner_enabled && var.key_vault_deny_traffic ? 1 : 0
+  count               = local.cloudscanner_enabled && (var.key_vault_deny_traffic || var.key_vault_private_network) ? 1 : 0
   name                = "privatelink.vaultcore.azure.net"
   resource_group_name = azurerm_resource_group.orgwide_resource_group[0].name
 }
@@ -64,22 +68,35 @@ resource "azurerm_role_assignment" "kv_secrets_scaler" {
   principal_id         = azurerm_user_assigned_identity.scaler_user_assigned_identity[0].principal_id
 }
 
-# Add organization-wide secrets to Key Vault
+# Wait for the Key Vault Administrator role assignment to propagate to the vault data plane
+# before writing secrets. RBAC assignments are eventually consistent: depends_on guarantees the
+# assignment is created in ARM, but not that it has reached the data plane. Without this wait the
+# first apply fails with a 403 on the secret write and only succeeds on a subsequent apply.
+resource "time_sleep" "kv_admin_role_assignment_wait" {
+  count           = local.cloudscanner_enabled && !var.key_vault_private_network ? 1 : 0
+  depends_on      = [azurerm_role_assignment.kv_admin]
+  create_duration = var.azure_role_definition_wait_time
+}
+
+# Add organization-wide secrets to Key Vault.
+# Skipped in private network mode: Terraform cannot reach a vault with public network access
+# disabled, so the customer must add 'upwind-client-id' and 'upwind-client-secret' manually
+# (see the key_vault_name output).
 resource "azurerm_key_vault_secret" "scanner_client_id" {
-  count        = local.cloudscanner_enabled ? 1 : 0
+  count        = local.cloudscanner_enabled && !var.key_vault_private_network ? 1 : 0
   name         = "upwind-client-id"
   value        = var.scanner_client_id
   key_vault_id = azurerm_key_vault.orgwide_key_vault[0].id
-  depends_on   = [azurerm_role_assignment.kv_admin]
+  depends_on   = [time_sleep.kv_admin_role_assignment_wait]
   tags         = var.tags
 }
 
 resource "azurerm_key_vault_secret" "scanner_client_secret" {
-  count        = local.cloudscanner_enabled ? 1 : 0
+  count        = local.cloudscanner_enabled && !var.key_vault_private_network ? 1 : 0
   name         = "upwind-client-secret"
   value        = var.scanner_client_secret
   key_vault_id = azurerm_key_vault.orgwide_key_vault[0].id
-  depends_on   = [azurerm_role_assignment.kv_admin]
+  depends_on   = [time_sleep.kv_admin_role_assignment_wait]
   tags         = var.tags
 }
 
