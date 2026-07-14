@@ -59,10 +59,17 @@ Each option is demonstrated in a dedicated example.
   * Variable: `key_vault_deny_traffic = false` (default)
   * Example: [`examples/tenant-basic/`](examples/tenant-basic/)
 
+* **Authentication** - How Upwind authenticates to the tenant (UP-3278)
+  * Workload identity federation, secretless (default): `use_workload_identity_federation = true`
+    * Example: [`examples/tenant-wif/`](examples/tenant-wif/)
+  * Legacy client secret: `use_workload_identity_federation = false`
+    * Example: [`examples/tenant-basic/`](examples/tenant-basic/)
+
 ## Quick Reference
 
 | Example | Scoping | CloudScanner | Tags | Key Vault |
 |---------|---------|--------------|------|-----------|
+| [tenant-wif](examples/tenant-wif/) | Tenant | ✅ | ❌ | Allow |
 | [tenant-basic](examples/tenant-basic/) | Tenant | ✅ | ❌ | Allow |
 | [tenant-management-groups](examples/tenant-management-groups/) | Mgmt Groups | ✅ | ❌ | Allow |
 | [tenant-include-subscriptions](examples/tenant-include-subscriptions/) | Include Subs | ✅ | ❌ | Allow |

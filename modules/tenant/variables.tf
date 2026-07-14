@@ -6,25 +6,25 @@ variable "upwind_organization_id" {
 }
 
 variable "upwind_client_id" {
-  description = "The client ID used for authentication with the Upwind Authorization Service. Required for self-hosted onboarding; not used when saas_enabled is true (SaaS onboarding is secretless and makes no Upwind API call)."
+  description = "The client ID used for authentication with the Upwind Authorization Service. Required for legacy client-secret onboarding; not used when saas_enabled or use_workload_identity_federation is true (both are secretless and make no Upwind API call)."
   type        = string
   default     = ""
 
   validation {
-    condition     = var.saas_enabled || var.upwind_client_id != ""
-    error_message = "upwind_client_id must be provided and cannot be empty for self-hosted onboarding (not required when saas_enabled = true)."
+    condition     = var.saas_enabled || var.use_workload_identity_federation || var.upwind_client_id != ""
+    error_message = "upwind_client_id must be provided and cannot be empty for legacy client-secret onboarding (not required when saas_enabled or use_workload_identity_federation is true)."
   }
 }
 
 variable "upwind_client_secret" {
-  description = "The client secret for authentication with the Upwind Authorization Service. Required for self-hosted onboarding; not used when saas_enabled is true."
+  description = "The client secret for authentication with the Upwind Authorization Service. Required for legacy client-secret onboarding; not used when saas_enabled or use_workload_identity_federation is true."
   type        = string
   sensitive   = true
   default     = ""
 
   validation {
-    condition     = var.saas_enabled || var.upwind_client_secret != ""
-    error_message = "upwind_client_secret must be provided and cannot be empty for self-hosted onboarding (not required when saas_enabled = true)."
+    condition     = var.saas_enabled || var.use_workload_identity_federation || var.upwind_client_secret != ""
+    error_message = "upwind_client_secret must be provided and cannot be empty for legacy client-secret onboarding (not required when saas_enabled or use_workload_identity_federation is true)."
   }
 }
 
@@ -328,6 +328,11 @@ variable "use_workload_identity_federation" {
   description = "Self-hosted (outpost) mode: authenticate via workload identity federation instead of a client secret (UP-3278). When true, no app registration or client secret is created in this tenant and no credentials are submitted to Upwind; instead the service principal of the org's Upwind-minted WIF app registration (wif_app_client_id) is materialized here and granted the self-hosted role set. Requires the org to be WIF-enabled on the Upwind side (azure-auth-service-enabled). Set false for the legacy client-secret flow. Ignored when saas_enabled is true."
   type        = bool
   default     = true
+
+  validation {
+    condition     = !(var.use_workload_identity_federation && !var.saas_enabled && var.azure_application_client_id != null)
+    error_message = "azure_application_client_id (the legacy existing-app flow) cannot be combined with workload identity federation. Set use_workload_identity_federation = false to keep the client-secret flow, or drop the legacy app inputs."
+  }
 }
 
 variable "wif_app_client_id" {
@@ -345,6 +350,11 @@ variable "wif_app_service_principal_object_id" {
   description = "WIF mode (optional): object ID of an existing service principal for the org's WIF app registration in the customer tenant. Provide this when the SP has already been created out-of-band (e.g. via admin consent / `az ad sp create`) and the Terraform runner lacks Microsoft Graph permissions to create it. When set, the module skips creating the service principal and assigns roles to this object ID directly; wif_app_client_id is then not required."
   type        = string
   default     = ""
+
+  validation {
+    condition     = var.wif_app_service_principal_object_id == "" || can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.wif_app_service_principal_object_id))
+    error_message = "The wif_app_service_principal_object_id must be a valid GUID format."
+  }
 }
 
 variable "snapshot_app_client_id" {

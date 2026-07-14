@@ -220,10 +220,11 @@ resource "azuread_application_api_access" "msgraph" {
 }
 
 # Data source for existing service principal (when using existing app)
-# Skipped if a service principal object ID is provided
+# Skipped if a service principal object ID is provided, and in SaaS/WIF modes
+# (no customer app registration exists to look up).
 # This is useful when MSGraph permissions cannot be configured for the TF runner App Registration
 data "azuread_service_principal" "existing" {
-  count     = local.create_new_application || var.azure_application_service_principal_object_id != null || var.saas_enabled ? 0 : 1
+  count     = local.create_new_application || var.azure_application_service_principal_object_id != null || var.saas_enabled || local.wif_enabled ? 0 : 1
   client_id = var.azure_application_client_id
 }
 
@@ -303,7 +304,7 @@ resource "azurerm_role_assignment" "custom" {
 }
 
 data "http" "upwind_get_organizational_credentials_request" {
-  count = var.saas_enabled ? 0 : 1
+  count = var.saas_enabled || local.wif_enabled ? 0 : 1
 
   method = "GET"
 

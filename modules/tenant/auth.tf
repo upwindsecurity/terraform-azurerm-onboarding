@@ -11,10 +11,10 @@ locals {
   upwind_integration_endpoint = var.upwind_region == "us" ? var.upwind_integration_endpoint : replace(var.upwind_integration_endpoint, ".upwind.", format(".%s.upwind.", var.upwind_region))
 }
 
-# Skipped in SaaS mode (var.saas_enabled): SaaS onboarding is secretless and
-# makes no Upwind API call, so no access token is needed.
+# Skipped in SaaS and WIF modes: both are secretless and make no Upwind API
+# call, so no access token is needed.
 data "http" "upwind_get_access_token_request" {
-  count = var.saas_enabled ? 0 : 1
+  count = var.saas_enabled || local.wif_enabled ? 0 : 1
 
   method = "POST"
 
