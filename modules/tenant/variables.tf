@@ -330,8 +330,8 @@ variable "use_workload_identity_federation" {
   default     = true
 
   validation {
-    condition     = !(var.use_workload_identity_federation && !var.saas_enabled && var.azure_application_client_id != null)
-    error_message = "azure_application_client_id (the legacy existing-app flow) cannot be combined with workload identity federation. Set use_workload_identity_federation = false to keep the client-secret flow, or drop the legacy app inputs."
+    condition     = !(var.use_workload_identity_federation && !var.saas_enabled && (var.azure_application_client_id != null || var.azure_application_service_principal_object_id != null || var.azure_application_client_secret != null))
+    error_message = "The legacy existing-app inputs (azure_application_client_id / azure_application_service_principal_object_id / azure_application_client_secret) cannot be combined with workload identity federation. Set use_workload_identity_federation = false to keep the client-secret flow, or drop the legacy app inputs."
   }
 }
 

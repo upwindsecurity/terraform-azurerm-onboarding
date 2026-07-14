@@ -31,12 +31,12 @@ output "azure_service_principal_id" {
 
 output "organizational_credentials" {
   value       = local.organizational_credentials
-  description = "The Upwind organizational credentials that were created to onboard the Azure tenant."
+  description = "The Upwind organizational credentials that were created to onboard the Azure tenant. Empty in SaaS and WIF modes (both secretless: no Upwind API call is made, so existing credentials are not queried)."
 }
 
 output "pending_tenant" {
   value       = local.pending_tenant
-  description = "The tenant ID that is pending onboarding, or null if already onboarded."
+  description = "The tenant ID that is pending onboarding, or null if already onboarded. Always the tenant ID in SaaS and WIF modes (the onboarding-status lookup is skipped along with the other Upwind API calls)."
 }
 
 output "key_vault_name" {
