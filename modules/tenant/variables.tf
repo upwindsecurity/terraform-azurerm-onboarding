@@ -210,9 +210,15 @@ variable "azure_cloudscanner_location" {
 }
 
 variable "disable_function_scanning" {
-  description = "If set to true will disable Storage Blob Data Reader role assignment for upwind-cs-vmss-identity"
+  description = "Legacy opt-out (poorly named): if true, disables the Storage Blob Data Reader / Storage File Data Privileged Reader grants that back DSPM. Retained for backwards compatibility; prefer upwind_feature_dspm_enabled to control DSPM. DSPM is enabled only when upwind_feature_dspm_enabled is true AND this is false."
   type        = bool
   default     = false
+}
+
+variable "upwind_feature_dspm_enabled" {
+  description = "Opt-in control for Upwind DSPM (Data Security Posture Management). When true (default), onboarding grants data-plane blob read (Storage Blob Data Reader / Storage File Data Privileged Reader) and, in SaaS mode, mints the DSPM marker role the CloudScanner feature gate detects. Setting this to false ALSO disables Azure Function scanning: Function apps store their code in an Azure storage account, and reading that code relies on the same Storage Blob Data Reader grant - so turning DSPM off removes function-code visibility too. Coexists with the legacy disable_function_scanning: DSPM (and function scanning) is provisioned only when this is true AND disable_function_scanning is false."
+  type        = bool
+  default     = true
 }
 
 variable "cloudapi_include_subscriptions" {
