@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.11.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.10.2...v1.11.0) (2026-06-26)
+
+### Features
+
+* **UP-1777:** saas onboarding for tenant module ([#75](https://github.com/upwindsecurity/terraform-azurerm-onboarding/issues/75)) ([30a302c](https://github.com/upwindsecurity/terraform-azurerm-onboarding/commit/30a302c2f5b949c84574228e69e1461238fe35c7))
+
 ## [1.3.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.2.0...v1.3.0) (2025-08-22)
 
 ### Features
