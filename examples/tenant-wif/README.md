@@ -15,11 +15,12 @@ Compared to the legacy flow (`use_workload_identity_federation = false`):
 - All other self-hosted resources (Key Vault, managed identities, scanner
   roles, CloudScanner infrastructure) are created as usual.
 
-`wif_app_client_id` is shown in the Upwind console after adding the Azure
+`fetcher_app_client_id` (the org's Upwind-minted WIF app registration - the same
+input the SaaS mode uses) is shown in the Upwind console after adding the Azure
 organization. If the Terraform runner lacks Microsoft Graph permissions to
 create service principals, pre-consent the app registration (e.g. via
-`az ad sp create --id <wif_app_client_id>`) and supply
-`wif_app_service_principal_object_id` instead.
+`az ad sp create --id <fetcher_app_client_id>`) and supply
+`fetcher_app_service_principal_object_id` instead.
 
 Requires the organization to be WIF-enabled on the Upwind side
 (`azure-auth-service-enabled`).

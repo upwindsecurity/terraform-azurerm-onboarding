@@ -325,35 +325,13 @@ variable "saas_enabled" {
 }
 
 variable "use_workload_identity_federation" {
-  description = "Self-hosted (outpost) mode: authenticate via workload identity federation instead of a client secret (UP-3278). When true, no app registration or client secret is created in this tenant and no credentials are submitted to Upwind; instead the service principal of the org's Upwind-minted WIF app registration (wif_app_client_id) is materialized here and granted the self-hosted role set. Requires the org to be WIF-enabled on the Upwind side (azure-auth-service-enabled). Set false for the legacy client-secret flow. Ignored when saas_enabled is true."
+  description = "Self-hosted (outpost) mode: authenticate via workload identity federation instead of a client secret (UP-3278). When true, no app registration or client secret is created in this tenant and no credentials are submitted to Upwind; instead the service principal of the org's Upwind-minted WIF app registration is materialized here and granted the self-hosted role set. The WIF app registration is the same Fetcher app the SaaS mode consents, so it is supplied via the same fetcher_app_client_id / fetcher_app_service_principal_object_id inputs. Requires the org to be WIF-enabled on the Upwind side (azure-auth-service-enabled). Set false for the legacy client-secret flow. Ignored when saas_enabled is true."
   type        = bool
   default     = true
 
   validation {
     condition     = !(var.use_workload_identity_federation && !var.saas_enabled && (var.azure_application_client_id != null || var.azure_application_service_principal_object_id != null || var.azure_application_client_secret != null))
     error_message = "The legacy existing-app inputs (azure_application_client_id / azure_application_service_principal_object_id / azure_application_client_secret) cannot be combined with workload identity federation. Set use_workload_identity_federation = false to keep the client-secret flow, or drop the legacy app inputs."
-  }
-}
-
-variable "wif_app_client_id" {
-  description = "WIF mode: client ID of the org's Upwind-minted multi-tenant WIF app registration (created when the Azure organization is added in the Upwind console). Its service principal is materialized in the customer tenant and granted the self-hosted role set. Required when use_workload_identity_federation is true, unless wif_app_service_principal_object_id is provided."
-  type        = string
-  default     = ""
-
-  validation {
-    condition     = var.wif_app_client_id == "" || can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.wif_app_client_id))
-    error_message = "The wif_app_client_id must be a valid GUID format."
-  }
-}
-
-variable "wif_app_service_principal_object_id" {
-  description = "WIF mode (optional): object ID of an existing service principal for the org's WIF app registration in the customer tenant. Provide this when the SP has already been created out-of-band (e.g. via admin consent / `az ad sp create`) and the Terraform runner lacks Microsoft Graph permissions to create it. When set, the module skips creating the service principal and assigns roles to this object ID directly; wif_app_client_id is then not required."
-  type        = string
-  default     = ""
-
-  validation {
-    condition     = var.wif_app_service_principal_object_id == "" || can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.wif_app_service_principal_object_id))
-    error_message = "The wif_app_service_principal_object_id must be a valid GUID format."
   }
 }
 
@@ -369,7 +347,7 @@ variable "snapshot_app_client_id" {
 }
 
 variable "fetcher_app_client_id" {
-  description = "SaaS mode: client ID of Upwind's multi-tenant Fetcher app registration. Its service principal is materialized in the customer tenant and granted, at the tenant-root management group, the outpost app-registration role set: the built-in read roles (var.azure_roles) + a custom role (var.azure_custom_role_permissions). Required when saas_enabled is true, unless fetcher_app_service_principal_object_id is provided."
+  description = "Client ID of the org's Upwind-minted multi-tenant Fetcher (WIF) app registration, shown in the Upwind console. SaaS mode: its service principal is materialized in the customer tenant and granted, at the tenant-root management group, the outpost app-registration role set: the built-in read roles (var.azure_roles) + a custom role (var.azure_custom_role_permissions). WIF mode: the same service principal is materialized and granted the full self-hosted role set instead. Required when saas_enabled or use_workload_identity_federation is true, unless fetcher_app_service_principal_object_id is provided."
   type        = string
   default     = ""
 
@@ -391,7 +369,7 @@ variable "snapshot_app_service_principal_object_id" {
 }
 
 variable "fetcher_app_service_principal_object_id" {
-  description = "SaaS mode (optional): object ID of an existing service principal for Upwind's Fetcher app registration in the customer tenant. Provide this when the SP has already been created out-of-band (e.g. via admin consent / `az ad sp create`) and the Terraform runner lacks Microsoft Graph permissions to create it. When set, the module skips creating the service principal and assigns roles to this object ID directly; fetcher_app_client_id is then not required."
+  description = "SaaS or WIF mode (optional): object ID of an existing service principal for the org's Fetcher (WIF) app registration in the customer tenant. Provide this when the SP has already been created out-of-band (e.g. via admin consent / `az ad sp create`) and the Terraform runner lacks Microsoft Graph permissions to create it. When set, the module skips creating the service principal and assigns roles to this object ID directly; fetcher_app_client_id is then not required."
   type        = string
   default     = ""
 

@@ -114,8 +114,8 @@ locals {
   # client secret, no credential submission. Not applicable in SaaS mode (already
   # secretless via its own app regs).
   wif_enabled      = var.use_workload_identity_federation && !var.saas_enabled
-  create_wif_sp    = local.wif_enabled && var.wif_app_service_principal_object_id == ""
-  wif_sp_object_id = var.wif_app_service_principal_object_id != "" ? var.wif_app_service_principal_object_id : one(azuread_service_principal.wif[*].object_id)
+  create_wif_sp    = local.wif_enabled && var.fetcher_app_service_principal_object_id == ""
+  wif_sp_object_id = var.fetcher_app_service_principal_object_id != "" ? var.fetcher_app_service_principal_object_id : one(azuread_service_principal.wif[*].object_id)
 
   # Determine if we should create a new app or use existing. SaaS onboarding
   # creates no app registration at all (it consents to Upwind's multi-tenant
@@ -143,7 +143,7 @@ locals {
 
   # Get the application client ID (the WIF app reg in WIF mode, otherwise new or
   # existing application). Null in SaaS mode.
-  application_client_id = var.saas_enabled ? null : (local.wif_enabled ? var.wif_app_client_id : (local.create_new_application ? azuread_application.this[0].client_id : var.azure_application_client_id))
+  application_client_id = var.saas_enabled ? null : (local.wif_enabled ? var.fetcher_app_client_id : (local.create_new_application ? azuread_application.this[0].client_id : var.azure_application_client_id))
 
   # For existing applications, assume the app owner has configured permissions
   needs_api_access = local.create_new_application && length(var.azure_application_msgraph_roles) > 0
@@ -248,19 +248,20 @@ resource "azuread_application_password" "client_secret" {
 }
 
 # WIF mode (UP-3278): materialize the consented service principal for the org's
-# Upwind-minted WIF app registration (skipped when
-# wif_app_service_principal_object_id is supplied). Mirrors the SaaS fetcher SP
-# pattern - the app reg itself lives in Upwind's tenant, carrying the
-# azure-auth-service federated credential; this tenant only trusts its SP.
+# Upwind-minted WIF app registration - the same Fetcher app the SaaS mode
+# consents, supplied via the shared fetcher_* inputs (skipped when
+# fetcher_app_service_principal_object_id is supplied). The app reg itself lives
+# in Upwind's tenant, carrying the azure-auth-service federated credential; this
+# tenant only trusts its SP.
 resource "azuread_service_principal" "wif" {
   count        = local.create_wif_sp ? 1 : 0
-  client_id    = var.wif_app_client_id
+  client_id    = var.fetcher_app_client_id
   use_existing = true
 
   lifecycle {
     precondition {
-      condition     = var.wif_app_client_id != ""
-      error_message = "use_workload_identity_federation requires wif_app_client_id (to create the SP) or wif_app_service_principal_object_id (to use an existing one). Both are available in the Upwind console after adding the Azure organization; alternatively set use_workload_identity_federation = false for the legacy client-secret flow."
+      condition     = var.fetcher_app_client_id != ""
+      error_message = "use_workload_identity_federation requires fetcher_app_client_id (to create the SP) or fetcher_app_service_principal_object_id (to use an existing one). Both are available in the Upwind console after adding the Azure organization; alternatively set use_workload_identity_federation = false for the legacy client-secret flow."
     }
   }
 }

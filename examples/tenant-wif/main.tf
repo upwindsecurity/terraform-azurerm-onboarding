@@ -38,12 +38,13 @@ module "upwind_integration_azure_onboarding" {
   upwind_organization_id = "org_example12345"
 
   # Workload identity federation (default true; shown here for clarity).
-  # wif_app_client_id is the org's Upwind-minted WIF app registration, shown in
-  # the Upwind console after the Azure organization is added. If the Terraform
-  # runner lacks Microsoft Graph permissions to create service principals,
-  # pre-consent the app and supply wif_app_service_principal_object_id instead.
+  # fetcher_app_client_id is the org's Upwind-minted WIF (Fetcher) app
+  # registration, shown in the Upwind console after the Azure organization is
+  # added - the same input the SaaS mode uses. If the Terraform runner lacks
+  # Microsoft Graph permissions to create service principals, pre-consent the
+  # app and supply fetcher_app_service_principal_object_id instead.
   use_workload_identity_federation = true
-  wif_app_client_id                = "33333333-3333-3333-3333-333333333333"
+  fetcher_app_client_id            = "33333333-3333-3333-3333-333333333333"
 
   # Azure configuration
   azure_tenant_id                    = local.azure_tenant_id

@@ -14,8 +14,8 @@ output "azure_application_name" {
 }
 
 output "azure_application_client_id" {
-  description = "The unique identifier for the Azure AD application (client). In WIF mode this is the org's Upwind-minted WIF app registration (null when only wif_app_service_principal_object_id was supplied)."
-  value       = local.wif_enabled ? (var.wif_app_client_id != "" ? var.wif_app_client_id : null) : (local.create_new_application ? azuread_application.this[0].client_id : var.azure_application_client_id)
+  description = "The unique identifier for the Azure AD application (client). In WIF mode this is the org's Upwind-minted WIF app registration (null when only fetcher_app_service_principal_object_id was supplied)."
+  value       = local.wif_enabled ? (var.fetcher_app_client_id != "" ? var.fetcher_app_client_id : null) : (local.create_new_application ? azuread_application.this[0].client_id : var.azure_application_client_id)
 }
 
 output "azure_application_client_secret" {
