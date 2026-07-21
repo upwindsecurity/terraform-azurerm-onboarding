@@ -210,15 +210,15 @@ variable "azure_cloudscanner_location" {
 }
 
 variable "disable_function_scanning" {
-  description = "Legacy opt-out (poorly named): if true, disables the Storage Blob Data Reader / Storage File Data Privileged Reader grants that back DSPM. Retained for backwards compatibility; prefer upwind_feature_dspm_enabled to control DSPM. DSPM is enabled only when upwind_feature_dspm_enabled is true AND this is false."
+  description = "Opt-out for Azure Function scanning (on by default): if true, the Storage Blob Data Reader / Storage File Data Privileged Reader grants are not assigned. DSPM reads data via the same grants, so setting this true also disables DSPM (the DSPM marker role is not minted regardless of upwind_feature_dspm_enabled)."
   type        = bool
   default     = false
 }
 
 variable "upwind_feature_dspm_enabled" {
-  description = "Opt-in control for Upwind DSPM (Data Security Posture Management). When true (default), onboarding grants data-plane blob read (Storage Blob Data Reader / Storage File Data Privileged Reader) and, in SaaS mode, mints the DSPM marker role the CloudScanner feature gate detects. Setting this to false ALSO disables Azure Function scanning: Function apps store their code in an Azure storage account, and reading that code relies on the same Storage Blob Data Reader grant - so turning DSPM off removes function-code visibility too. Coexists with the legacy disable_function_scanning: DSPM (and function scanning) is provisioned only when this is true AND disable_function_scanning is false."
+  description = "Opt-in control for Upwind DSPM (Data Security Posture Management). When true, onboarding mints the DSPM marker role the CloudScanner feature gate detects. The marker is minted when CloudScanner is provisioned (self-hosted) or in SaaS mode; onboardings without CloudScanner mint nothing. Default false: DSPM is opt-in. Gates ONLY the marker role - the storage data-plane read grants (Storage Blob Data Reader / Storage File Data Privileged Reader) are always assigned because Azure Function scanning (on by default) reads function code via the same roles. Ignored (no marker minted) when disable_function_scanning is true, since DSPM reads data via those grants."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "cloudapi_include_subscriptions" {

@@ -52,15 +52,18 @@ locals {
     "${pair[0]}|${pair[1]}" => { scope = pair[0], role = pair[1] }
   } : {}
 
-  # Snapshot SP worker data-plane roles. These back DSPM (blob/file content read), so
-  # they are gated on DSPM being enabled (local.dspm_enabled) in addition to saas_enabled.
-  saas_snapshot_worker_role_assignments = (var.saas_enabled && local.dspm_enabled) ? {
+  # Snapshot SP worker data-plane roles. Not gated on DSPM: Azure Function code
+  # scanning (on by default) reads function code via these same grants, so they are
+  # assigned whenever SaaS scanning is provisioned, subject only to the legacy
+  # disable_function_scanning opt-out.
+  saas_snapshot_worker_role_assignments = (var.saas_enabled && local.function_scanning_enabled) ? {
     for pair in setproduct(local.normalized_management_group_ids, local.saas_snapshot_worker_roles) :
     "${pair[0]}|${pair[1]}" => { scope = pair[0], role = pair[1] }
   } : {}
 
-  # DSPM marker role scopes - minted only when DSPM is enabled, alongside the worker
-  # data-plane grant above, so "marker exists <=> DSPM provisioned" holds.
+  # DSPM marker role scopes - minted only when DSPM is opted in
+  # (upwind_feature_dspm_enabled), so "marker exists <=> DSPM enabled" holds. The
+  # storage grants above are always assigned and no longer signal anything.
   saas_dspm_marker_scopes = (var.saas_enabled && local.dspm_enabled) ? toset(local.normalized_management_group_ids) : []
 
   # Snapshot SP CloudScannerTargetRole scopes (target-disk read + begin-access +

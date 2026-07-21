@@ -3,12 +3,17 @@
 locals {
   resource_suffix = format("%s%s", var.upwind_organization_id, var.resource_suffix)
 
-  # DSPM (data-plane blob read) is enabled only when the customer opts in via
-  # upwind_feature_dspm_enabled AND has not set the legacy disable_function_scanning
-  # opt-out. Either control can turn DSPM off; default is on. Used to gate the
-  # Storage Blob/File data readers (self-hosted below and SaaS in saas.tf) and the
-  # SaaS DSPM marker role.
-  dspm_enabled = var.upwind_feature_dspm_enabled && !var.disable_function_scanning
+  # Storage Blob/File data readers (self-hosted below and SaaS in saas.tf) back Azure
+  # Function code scanning, which is on by default - so they are granted whenever
+  # scanning is provisioned, gated only by the legacy disable_function_scanning opt-out.
+  function_scanning_enabled = !var.disable_function_scanning
+
+  # DSPM is opt-in via upwind_feature_dspm_enabled (default false) and gates ONLY the
+  # DSPM marker role (self-hosted below and SaaS in saas.tf) - the CloudScanner feature
+  # gate's signal that DSPM is enabled for this org. DSPM reads data via the same
+  # storage grants as function scanning, so the disable_function_scanning opt-out also
+  # turns DSPM off.
+  dspm_enabled = var.upwind_feature_dspm_enabled && local.function_scanning_enabled
 
   # Actions granted by CloudScannerTargetRole: target-disk read + begin-access +
   # ACR pull. Shared between the self-hosted (outpost) worker identity and the
@@ -150,8 +155,9 @@ resource "azurerm_role_assignment" "cloudscanner_worker" {
 # Because this is a data action permission, we can't include this in a custom role definition and assign it at a management group scope.
 # If function_storage_accounts is provided, assign to specific storage accounts only.
 # Otherwise, assign to all resources in cloudscanner scope.
+# Not gated on DSPM: function scanning (on by default) reads function code via this grant.
 resource "azurerm_role_assignment" "storage_reader" {
-  for_each = (local.cloudscanner_enabled && local.dspm_enabled) ? (
+  for_each = (local.cloudscanner_enabled && local.function_scanning_enabled) ? (
     length(var.function_storage_accounts) > 0 ?
     toset(var.function_storage_accounts) :
     toset(local.cloudscanner_scopes)
@@ -164,8 +170,9 @@ resource "azurerm_role_assignment" "storage_reader" {
 # Assign Storage File Data Privileged Reader role to the worker identity
 # If function_storage_accounts is provided, assign to specific storage accounts only.
 # Otherwise, assign to all resources in cloudscanner scope.
+# Not gated on DSPM: function scanning (on by default) reads function code via this grant.
 resource "azurerm_role_assignment" "storage_file_reader" {
-  for_each = (local.cloudscanner_enabled && local.dspm_enabled) ? (
+  for_each = (local.cloudscanner_enabled && local.function_scanning_enabled) ? (
     length(var.function_storage_accounts) > 0 ?
     toset(var.function_storage_accounts) :
     toset(local.cloudscanner_scopes)
@@ -178,7 +185,7 @@ resource "azurerm_role_assignment" "storage_file_reader" {
 
 # Assign a least-privilege App Service SCM bearer role to the worker identity
 resource "azurerm_role_definition" "app_service_scm_bearer_reader" {
-  for_each = (local.cloudscanner_enabled && !var.disable_function_scanning) ? toset(local.cloudscanner_scopes) : []
+  for_each = (local.cloudscanner_enabled && local.function_scanning_enabled) ? toset(local.cloudscanner_scopes) : []
 
   name        = "CloudScannerAppServiceScmRole-${local.resource_suffix}-${split("/", each.value)[length(split("/", each.value)) - 1]}"
   description = "Role for CloudScanner workers to read App Service metadata and access SCM with bearer authentication in this scope"
@@ -193,7 +200,7 @@ resource "azurerm_role_definition" "app_service_scm_bearer_reader" {
 }
 
 resource "time_sleep" "app_service_scm_bearer_reader_role_definition_wait" {
-  count           = (local.cloudscanner_enabled && !var.disable_function_scanning) ? 1 : 0
+  count           = (local.cloudscanner_enabled && local.function_scanning_enabled) ? 1 : 0
   depends_on      = [azurerm_role_definition.app_service_scm_bearer_reader]
   create_duration = var.azure_role_definition_wait_time
 }
@@ -312,6 +319,52 @@ resource "azurerm_role_assignment" "target_role_assignment" {
   principal_id       = azurerm_user_assigned_identity.worker_user_assigned_identity[0].principal_id
   scope              = each.value.scope
   depends_on         = [time_sleep.target_role_definition_wait[0]]
+}
+
+# endregion
+
+# region DSPM marker
+
+# DSPM feature-gate marker role, minted per scope only when DSPM is opted in
+# (upwind_feature_dspm_enabled). Gives CloudScanner's DSPM feature gate a Graph-free
+# signal that DSPM is enabled for this org: the role carries only a benign
+# management-plane read (no dataActions), and role definitions are collected via
+# management-plane reads, so the gate detects it via
+# SearchAzureRoleDefinitions(roleName like "UpwindDSPMEnabled-{orgID}%").
+#
+# The "UpwindDSPMEnabled" name prefix is a contract with cloudscanner
+# cloudproviders.DSPMRolePrefix, the saas.tf saas_dspm_marker role and the serverless
+# mg-roles/sub-roles/saas-mg-roles.bicep dspmMarkerRole - a rename must move on all
+# sides together. In SaaS mode cloudscanner_enabled is always false (see
+# cloudscanner_general.tf), so this never overlaps the identically named marker
+# saas.tf mints there.
+resource "azurerm_role_definition" "dspm_marker" {
+  for_each    = (local.cloudscanner_enabled && local.dspm_enabled) ? toset(local.cloudscanner_scopes) : []
+  name        = "UpwindDSPMEnabled-${local.resource_suffix}-${split("/", each.value)[length(split("/", each.value)) - 1]}"
+  description = "Marker role signalling that Upwind DSPM is enabled for this org; detected by the CloudScanner DSPM feature gate."
+  scope       = each.value
+  permissions {
+    actions = ["Microsoft.Storage/storageAccounts/read"]
+  }
+}
+
+resource "time_sleep" "dspm_marker_wait" {
+  count           = (local.cloudscanner_enabled && local.dspm_enabled) ? 1 : 0
+  depends_on      = [azurerm_role_definition.dspm_marker]
+  create_duration = var.azure_role_definition_wait_time
+}
+
+# Worker identity -> DSPM marker role at each scope. Assigning (not just defining) keeps
+# the marker from reading as orphaned to cleanup tooling. The role carries only
+# management-plane storage-account metadata read (no dataActions); note that when
+# function_storage_accounts narrows the data readers to specific accounts, this still
+# lets the worker ENUMERATE storage accounts across the scope (metadata only, no data).
+resource "azurerm_role_assignment" "dspm_marker" {
+  for_each           = azurerm_role_definition.dspm_marker
+  role_definition_id = each.value.role_definition_resource_id
+  principal_id       = azurerm_user_assigned_identity.worker_user_assigned_identity[0].principal_id
+  scope              = each.value.scope
+  depends_on         = [time_sleep.dspm_marker_wait[0]]
 }
 
 # endregion
