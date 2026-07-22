@@ -4,10 +4,11 @@ This Terraform module handles the onboarding of Microsoft Azure tenants to the U
 seamlessly connect their entire tenant for comprehensive monitoring and security analysis.
 
 <!-- BEGIN_TF_DOCS -->
+
 ## Requirements
 
 | Name | Version |
-|------|---------|
+| ---- | ------- |
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.9 |
 | <a name="requirement_azuread"></a> [azuread](#requirement\_azuread) | >= 2.53 |
 | <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | >= 4.42 |
@@ -19,12 +20,12 @@ seamlessly connect their entire tenant for comprehensive monitoring and security
 ## Providers
 
 | Name | Version |
-|------|---------|
-| <a name="provider_azuread"></a> [azuread](#provider\_azuread) | 3.8.0 |
-| <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 4.72.0 |
-| <a name="provider_http"></a> [http](#provider\_http) | 3.5.0 |
-| <a name="provider_random"></a> [random](#provider\_random) | 3.8.1 |
-| <a name="provider_time"></a> [time](#provider\_time) | 0.13.1 |
+| ---- | ------- |
+| <a name="provider_azuread"></a> [azuread](#provider\_azuread) | 3.9.0 |
+| <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 4.80.0 |
+| <a name="provider_http"></a> [http](#provider\_http) | 3.6.0 |
+| <a name="provider_random"></a> [random](#provider\_random) | 3.9.0 |
+| <a name="provider_time"></a> [time](#provider\_time) | 0.14.0 |
 
 ## Modules
 
@@ -33,7 +34,7 @@ No modules.
 ## Resources
 
 | Name | Type |
-|------|------|
+| ---- | ---- |
 | [azuread_application.this](https://registry.terraform.io/providers/hashicorp/azuread/latest/docs/resources/application) | resource |
 | [azuread_application_api_access.msgraph](https://registry.terraform.io/providers/hashicorp/azuread/latest/docs/resources/application_api_access) | resource |
 | [azuread_application_password.client_secret](https://registry.terraform.io/providers/hashicorp/azuread/latest/docs/resources/application_password) | resource |
@@ -48,6 +49,7 @@ No modules.
 | [azurerm_monitor_diagnostic_setting.kv_diagnostics](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/monitor_diagnostic_setting) | resource |
 | [azurerm_private_dns_zone.orgwide_keyvault_dns_zone](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/private_dns_zone) | resource |
 | [azurerm_resource_group.orgwide_resource_group](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/resource_group) | resource |
+| [azurerm_resource_group.saas_snapshots](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/resource_group) | resource |
 | [azurerm_role_assignment.app_service_scm_bearer_reader](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
 | [azurerm_role_assignment.builtin](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
 | [azurerm_role_assignment.cloudscanner_scaler](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
@@ -64,6 +66,7 @@ No modules.
 | [azurerm_role_assignment.saas_snapshot](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
 | [azurerm_role_assignment.saas_snapshot_target_role](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
 | [azurerm_role_assignment.saas_snapshot_worker](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
+| [azurerm_role_assignment.saas_snapshot_write](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
 | [azurerm_role_assignment.storage_file_reader](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
 | [azurerm_role_assignment.storage_reader](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
 | [azurerm_role_assignment.target_role_assignment](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
@@ -88,6 +91,7 @@ No modules.
 | [time_sleep.deployer_role_definition_wait](https://registry.terraform.io/providers/hashicorp/time/latest/docs/resources/sleep) | resource |
 | [time_sleep.kv_admin_role_assignment_wait](https://registry.terraform.io/providers/hashicorp/time/latest/docs/resources/sleep) | resource |
 | [time_sleep.saas_dspm_marker_wait](https://registry.terraform.io/providers/hashicorp/time/latest/docs/resources/sleep) | resource |
+| [time_sleep.saas_fetcher_custom_role_wait](https://registry.terraform.io/providers/hashicorp/time/latest/docs/resources/sleep) | resource |
 | [time_sleep.saas_snapshot_target_role_wait](https://registry.terraform.io/providers/hashicorp/time/latest/docs/resources/sleep) | resource |
 | [time_sleep.target_role_definition_wait](https://registry.terraform.io/providers/hashicorp/time/latest/docs/resources/sleep) | resource |
 | [azuread_application_published_app_ids.well_known](https://registry.terraform.io/providers/hashicorp/azuread/latest/docs/data-sources/application_published_app_ids) | data source |
@@ -103,7 +107,7 @@ No modules.
 ## Inputs
 
 | Name | Description | Type | Default | Required |
-|------|-------------|------|---------|:--------:|
+| ---- | ----------- | ---- | ------- | :------: |
 | <a name="input_azure_application_client_id"></a> [azure\_application\_client\_id](#input\_azure\_application\_client\_id) | Optional client ID of an existing Azure AD application. If provided, the module will use this existing application instead of creating a new one. Mutually exclusive with azure\_application\_name\_prefix. MSGraph permissions need to be configured manually for the existing application. Note: for a multi-tenant application registered in a different tenant, a service principal for the application must already exist in the tenant being onboarded (e.g. created via `az ad sp create --id <client_id>` or via admin consent at <https://login.microsoftonline.com/{tenant_id}/adminconsent?client_id={app_id}>) before running this module. In the multi-tenant case you must also set azure\_application\_service\_principal\_object\_id — otherwise the data-source lookup of the application object fails at plan time, because the app registration lives in the home tenant and is not visible to the runner. | `string` | `null` | no |
 | <a name="input_azure_application_client_secret"></a> [azure\_application\_client\_secret](#input\_azure\_application\_client\_secret) | Client secret for the existing Azure AD application. Required when azure\_application\_client\_id is provided and organizational credentials will be created. Should be managed externally (e.g., Azure Portal, CLI, or separate automation). | `string` | `null` | no |
 | <a name="input_azure_application_msgraph_roles"></a> [azure\_application\_msgraph\_roles](#input\_azure\_application\_msgraph\_roles) | List of Microsoft Graph API roles that should be granted to the Azure AD application. These permissions are required for platform functionality and will be applied to both new and existing applications. | `list(string)` | <pre>[<br/>  "User.Read.All",<br/>  "Group.Read.All",<br/>  "RoleManagement.Read.All",<br/>  "Directory.Read.All",<br/>  "Policy.Read.All",<br/>  "UserAuthenticationMethod.Read.All"<br/>]</pre> | no |
@@ -123,9 +127,10 @@ No modules.
 | <a name="input_cloudscanner_exclude_subscriptions"></a> [cloudscanner\_exclude\_subscriptions](#input\_cloudscanner\_exclude\_subscriptions) | Optional list of subscription IDs to exclude from cloudscanner managed identity role assignments. If provided, cloudscanner roles will be assigned at the subscription level to all tenant subscriptions except these (instead of at management group level). Mutually exclusive with cloudscanner\_include\_subscriptions. Note: When used with azure\_management\_group\_ids, role assignments switch from management-group-level to subscription-level for all tenant subscriptions (excluding specified ones). This will enable us to exclude subscriptions from the scanning process. Cloudscanner scope should be a subset of cloudapi scope. | `list(string)` | `[]` | no |
 | <a name="input_cloudscanner_include_subscriptions"></a> [cloudscanner\_include\_subscriptions](#input\_cloudscanner\_include\_subscriptions) | Optional list of subscription IDs to include for cloudscanner managed identity role assignments. If provided, cloudscanner roles will only be assigned to these subscriptions. Mutually exclusive with cloudscanner\_exclude\_subscriptions. Can be combined with azure\_management\_group\_ids or azure\_tenant\_id. This will enable us to scan resources in these subscriptions. Cloudscanner scope should be a subset of cloudapi scope. | `list(string)` | `[]` | no |
 | <a name="input_create_organizational_credentials"></a> [create\_organizational\_credentials](#input\_create\_organizational\_credentials) | Set to false to skip sending organizational credentials to Upwind. The default value for this variable should be set to true for onboarding deployments using 'terraform init && terraform apply' and set to false when offboarding using 'terraform destroy'. It is essential that it is reset appropriately for subsequent deploy / destroy attempts. | `bool` | `true` | no |
+| <a name="input_customer_snapshot_resource_group"></a> [customer\_snapshot\_resource\_group](#input\_customer\_snapshot\_resource\_group) | SaaS mode: name of the central snapshots resource group created in the orchestrator subscription (azure\_orchestrator\_subscription\_id). The Snapshot SP's snapshot write/delete roles (Disk Snapshot Contributor + Data Operator for Managed Disks) are confined to this RG instead of being granted tenant-wide. Defaults to upwind-cs-rg-<upwind\_organization\_id> when empty. | `string` | `""` | no |
 | <a name="input_disable_function_scanning"></a> [disable\_function\_scanning](#input\_disable\_function\_scanning) | Legacy opt-out (poorly named): if true, disables the Storage Blob Data Reader / Storage File Data Privileged Reader grants that back DSPM. Retained for backwards compatibility; prefer upwind\_feature\_dspm\_enabled to control DSPM. DSPM is enabled only when upwind\_feature\_dspm\_enabled is true AND this is false. | `bool` | `false` | no |
-| <a name="input_fetcher_app_client_id"></a> [fetcher\_app\_client\_id](#input\_fetcher\_app\_client\_id) | SaaS mode: client ID of Upwind's multi-tenant Fetcher app registration. Its service principal is materialized in the customer tenant and granted, at the tenant-root management group, the outpost app-registration role set: the built-in read roles (var.azure\_roles) + a custom role (var.azure\_custom\_role\_permissions). Required when saas\_enabled is true, unless fetcher\_app\_service\_principal\_object\_id is provided. | `string` | `""` | no |
-| <a name="input_fetcher_app_service_principal_object_id"></a> [fetcher\_app\_service\_principal\_object\_id](#input\_fetcher\_app\_service\_principal\_object\_id) | SaaS mode (optional): object ID of an existing service principal for Upwind's Fetcher app registration in the customer tenant. Provide this when the SP has already been created out-of-band (e.g. via admin consent / `az ad sp create`) and the Terraform runner lacks Microsoft Graph permissions to create it. When set, the module skips creating the service principal and assigns roles to this object ID directly; fetcher\_app\_client\_id is then not required. | `string` | `""` | no |
+| <a name="input_fetcher_app_client_id"></a> [fetcher\_app\_client\_id](#input\_fetcher\_app\_client\_id) | Client ID of the org's Upwind-minted multi-tenant Fetcher (WIF) app registration, shown in the Upwind console. SaaS mode: its service principal is materialized in the customer tenant and granted, at the tenant-root management group, the outpost app-registration role set: the built-in read roles (var.azure\_roles) + a custom role (var.azure\_custom\_role\_permissions). WIF mode: the same service principal is materialized and granted the full self-hosted role set instead. Required when saas\_enabled or use\_workload\_identity\_federation is true, unless fetcher\_app\_service\_principal\_object\_id is provided. | `string` | `""` | no |
+| <a name="input_fetcher_app_service_principal_object_id"></a> [fetcher\_app\_service\_principal\_object\_id](#input\_fetcher\_app\_service\_principal\_object\_id) | SaaS or WIF mode (optional): object ID of an existing service principal for the org's Fetcher (WIF) app registration in the customer tenant. Provide this when the SP has already been created out-of-band (e.g. via admin consent / `az ad sp create`) and the Terraform runner lacks Microsoft Graph permissions to create it. When set, the module skips creating the service principal and assigns roles to this object ID directly; fetcher\_app\_client\_id is then not required. | `string` | `""` | no |
 | <a name="input_function_storage_accounts"></a> [function\_storage\_accounts](#input\_function\_storage\_accounts) | Optional list of storage account resource IDs used by Function Apps. If provided, Storage Blob Data Reader role will only be assigned to these specific storage accounts instead of all resources in scope. Use the list-function-storage-accounts.sh script to discover these. Example: ["/subscriptions/{sub-id}/resourceGroups/{rg}/providers/Microsoft.Storage/storageAccounts/{name}"] | `list(string)` | `[]` | no |
 | <a name="input_key_vault_deny_traffic"></a> [key\_vault\_deny\_traffic](#input\_key\_vault\_deny\_traffic) | Whether to deny traffic to the Key Vault using network ACLs. When true, only trusted Azure services and allowed IPs can access the vault. | `bool` | `false` | no |
 | <a name="input_key_vault_ip_rules"></a> [key\_vault\_ip\_rules](#input\_key\_vault\_ip\_rules) | One or more IP Addresses, or CIDR Blocks which should be able to access the Key Vault. This is only relevant if key\_vault\_deny\_traffic is set to true. | `list(string)` | `[]` | no |
@@ -137,12 +142,12 @@ No modules.
 | <a name="input_scanner_client_id"></a> [scanner\_client\_id](#input\_scanner\_client\_id) | The client ID used for authentication with the Upwind CloudScanner Service. | `string` | `""` | no |
 | <a name="input_scanner_client_secret"></a> [scanner\_client\_secret](#input\_scanner\_client\_secret) | The client secret for authentication with the Upwind CloudScanner Service. | `string` | `""` | no |
 | <a name="input_skip_app_service_provider_registration"></a> [skip\_app\_service\_provider\_registration](#input\_skip\_app\_service\_provider\_registration) | DEPRECATED: We have removed the need for this variable. Set to true to skip the Microsoft.App provider registration, recommended if running on Windows. If resource\_providers\_to\_register is set to ["Microsoft.App"] on the azurerm provider, this can safely be set to true. | `bool` | `false` | no |
-| <a name="input_snapshot_app_client_id"></a> [snapshot\_app\_client\_id](#input\_snapshot\_app\_client\_id) | SaaS mode: client ID of Upwind's multi-tenant Snapshot app registration. Its service principal is materialized in the customer tenant and granted, at the tenant-root management group, the outpost worker role set: Reader + Disk Snapshot Contributor + Data Operator for Managed Disks + a CloudScannerTargetRole custom role + Storage Blob/File data-plane readers. Required when saas\_enabled is true, unless snapshot\_app\_service\_principal\_object\_id is provided. | `string` | `""` | no |
+| <a name="input_snapshot_app_client_id"></a> [snapshot\_app\_client\_id](#input\_snapshot\_app\_client\_id) | SaaS mode: client ID of Upwind's multi-tenant Snapshot app registration. Its service principal is materialized in the customer tenant and granted read-only roles at the tenant-root management group (Reader + a CloudScannerTargetRole custom role + Storage Blob/File data-plane readers), plus snapshot write/delete (Disk Snapshot Contributor + Data Operator for Managed Disks) confined to the central snapshots resource group in the orchestrator subscription (see customer\_snapshot\_resource\_group). Required when saas\_enabled is true, unless snapshot\_app\_service\_principal\_object\_id is provided. | `string` | `""` | no |
 | <a name="input_snapshot_app_service_principal_object_id"></a> [snapshot\_app\_service\_principal\_object\_id](#input\_snapshot\_app\_service\_principal\_object\_id) | SaaS mode (optional): object ID of an existing service principal for Upwind's Snapshot app registration in the customer tenant. Provide this when the SP has already been created out-of-band (e.g. via admin consent / `az ad sp create`) and the Terraform runner lacks Microsoft Graph permissions to create it. When set, the module skips creating the service principal and assigns roles to this object ID directly; snapshot\_app\_client\_id is then not required. | `string` | `""` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags to apply to all resources. | `map(string)` | `{}` | no |
 | <a name="input_upwind_auth_endpoint"></a> [upwind\_auth\_endpoint](#input\_upwind\_auth\_endpoint) | The Authentication API endpoint. | `string` | `"https://auth.upwind.io"` | no |
-| <a name="input_upwind_client_id"></a> [upwind\_client\_id](#input\_upwind\_client\_id) | The client ID used for authentication with the Upwind Authorization Service. Required for self-hosted onboarding; not used when saas\_enabled is true (SaaS onboarding is secretless and makes no Upwind API call). | `string` | `""` | no |
-| <a name="input_upwind_client_secret"></a> [upwind\_client\_secret](#input\_upwind\_client\_secret) | The client secret for authentication with the Upwind Authorization Service. Required for self-hosted onboarding; not used when saas\_enabled is true. | `string` | `""` | no |
+| <a name="input_upwind_client_id"></a> [upwind\_client\_id](#input\_upwind\_client\_id) | The client ID used for authentication with the Upwind Authorization Service. Required for legacy client-secret onboarding; not used when saas\_enabled or use\_workload\_identity\_federation is true (both are secretless and make no Upwind API call). | `string` | `""` | no |
+| <a name="input_upwind_client_secret"></a> [upwind\_client\_secret](#input\_upwind\_client\_secret) | The client secret for authentication with the Upwind Authorization Service. Required for legacy client-secret onboarding; not used when saas\_enabled or use\_workload\_identity\_federation is true. | `string` | `""` | no |
 | <a name="input_upwind_feature_dspm_enabled"></a> [upwind\_feature\_dspm\_enabled](#input\_upwind\_feature\_dspm\_enabled) | Opt-in control for Upwind DSPM (Data Security Posture Management). When true (default), onboarding grants data-plane blob read (Storage Blob Data Reader / Storage File Data Privileged Reader) and, in SaaS mode, mints the DSPM marker role the CloudScanner feature gate detects. Setting this to false ALSO disables Azure Function scanning: Function apps store their code in an Azure storage account, and reading that code relies on the same Storage Blob Data Reader grant - so turning DSPM off removes function-code visibility too. Coexists with the legacy disable\_function\_scanning: DSPM (and function scanning) is provisioned only when this is true AND disable\_function\_scanning is false. | `bool` | `true` | no |
 | <a name="input_upwind_integration_endpoint"></a> [upwind\_integration\_endpoint](#input\_upwind\_integration\_endpoint) | The Integration API endpoint. | `string` | `"https://integration.upwind.io"` | no |
 | <a name="input_upwind_organization_id"></a> [upwind\_organization\_id](#input\_upwind\_organization\_id) | The identifier of the Upwind organization to integrate with. | `string` | n/a | yes |
@@ -152,7 +157,7 @@ No modules.
 ## Outputs
 
 | Name | Description |
-|------|-------------|
+| ---- | ----------- |
 | <a name="output_azure_application_client_id"></a> [azure\_application\_client\_id](#output\_azure\_application\_client\_id) | The unique identifier for the Azure AD application (client). In WIF mode this is the org's Upwind-minted WIF app registration (null when only fetcher\_app\_service\_principal\_object\_id was supplied). |
 | <a name="output_azure_application_client_secret"></a> [azure\_application\_client\_secret](#output\_azure\_application\_client\_secret) | The client secret for the Azure AD application. |
 | <a name="output_azure_application_name"></a> [azure\_application\_name](#output\_azure\_application\_name) | The display name for the Azure AD application. Null in WIF mode (the app registration lives in Upwind's tenant, not this one). |

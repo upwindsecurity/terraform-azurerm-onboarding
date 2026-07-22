@@ -39,6 +39,13 @@ Additional configuration options:
 - **[tenant-keyvault-deny](tenant-keyvault-deny/)** - Secure Key Vault with network restrictions
 - **[tenant-keyvault-private](tenant-keyvault-private/)** - Fully private Key Vault (secrets added manually)
 
+### SaaS (Provider-Hosted) Examples
+
+Secretless onboarding where scanning runs in Upwind's tenant — no customer-side scanner, Key Vault, managed identities, or credentials:
+
+- **[tenant-saas](tenant-saas/)** - SaaS onboarding; the module creates and consents the Snapshot/Fetcher service principals
+- **[tenant-saas-existing-sp](tenant-saas-existing-sp/)** - SaaS onboarding using pre-created service principals (runner needs no Microsoft Graph permissions)
+
 ### Advanced Examples
 
 Production-ready configurations:
@@ -58,6 +65,8 @@ Production-ready configurations:
 | [tenant-keyvault-deny](tenant-keyvault-deny/) | Tenant | ✅ | ❌ | Deny | Enhanced security |
 | [tenant-keyvault-private](tenant-keyvault-private/) | Tenant | ✅ | ❌ | Private | No public vault access |
 | [tenant-advanced](tenant-advanced/) | Exclude Subs | ✅ | ✅ | Deny | Production deployment |
+| [tenant-saas](tenant-saas/) | Tenant | N/A (provider-hosted) | ❌ | N/A | Secretless SaaS onboarding |
+| [tenant-saas-existing-sp](tenant-saas-existing-sp/) | Tenant | N/A (provider-hosted) | ❌ | N/A | SaaS with pre-created SPs |
 
 ## Choosing an Example
 
@@ -84,6 +93,9 @@ or [tenant-keyvault-private](tenant-keyvault-private/) for a fully private vault
 
 **Production deployment with multiple features?**
 → Use [tenant-advanced](tenant-advanced/)
+
+**Provider-hosted (SaaS), secretless onboarding?**
+→ Use [tenant-saas](tenant-saas/), or [tenant-saas-existing-sp](tenant-saas-existing-sp/) if the service principals are pre-created
 
 ### By Security Posture
 

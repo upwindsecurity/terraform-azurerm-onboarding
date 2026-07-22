@@ -18,11 +18,18 @@ This example uses:
 - `azure_tenant_id` to assign the consented service principals their scoped roles at the tenant-root management group
 
 In SaaS mode the module materializes the service principals for Upwind's Snapshot and Fetcher
-app registrations in the customer tenant and assigns them scoped roles at the tenant-root
-management group:
+app registrations in the customer tenant and assigns them scoped roles:
 
-- Snapshot SP: Reader + Disk Snapshot Contributor + Data Operator for Managed Disks
-- Fetcher SP: Reader
+- Snapshot SP (read, at the tenant-root management group): Reader + a CloudScannerTargetRole
+  custom role + Storage Blob/File data-plane readers
+- Snapshot SP (write/delete, confined to the central snapshots RG in the orchestrator
+  subscription): Disk Snapshot Contributor + Data Operator for Managed Disks
+- Fetcher SP (at the tenant-root management group): the built-in read roles (`azure_roles`) + a
+  custom role (`azure_custom_role_permissions`)
+
+The module also creates the central snapshots resource group in the orchestrator subscription
+(name from `customer_snapshot_resource_group`, default `upwind-cs-rg-<org-id>`) — snapshot
+write/delete is confined to it rather than granted tenant-wide.
 
 No self-hosted resources (app registration, Key Vault, managed identities, custom roles) and no
 scanner credentials are created.
