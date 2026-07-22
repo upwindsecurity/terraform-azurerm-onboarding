@@ -32,6 +32,9 @@ provider "azuread" {
 module "upwind_integration_azure_onboarding" {
   source = "upwindsecurity/onboarding/azurerm//modules/tenant"
 
+  # Legacy client-secret flow; see examples/tenant-wif for workload identity federation.
+  use_workload_identity_federation = false
+
   # Upwind organization configuration
   upwind_organization_id = "org_example12345"
   upwind_client_id       = "upwind_client_id_example"

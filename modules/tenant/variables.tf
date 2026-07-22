@@ -6,25 +6,25 @@ variable "upwind_organization_id" {
 }
 
 variable "upwind_client_id" {
-  description = "The client ID used for authentication with the Upwind Authorization Service. Required for self-hosted onboarding; not used when saas_enabled is true (SaaS onboarding is secretless and makes no Upwind API call)."
+  description = "The client ID used for authentication with the Upwind Authorization Service. Required for legacy client-secret onboarding; not used when saas_enabled or use_workload_identity_federation is true (both are secretless and make no Upwind API call)."
   type        = string
   default     = ""
 
   validation {
-    condition     = var.saas_enabled || var.upwind_client_id != ""
-    error_message = "upwind_client_id must be provided and cannot be empty for self-hosted onboarding (not required when saas_enabled = true)."
+    condition     = var.saas_enabled || var.use_workload_identity_federation || var.upwind_client_id != ""
+    error_message = "upwind_client_id must be provided and cannot be empty for legacy client-secret onboarding (not required when saas_enabled or use_workload_identity_federation is true)."
   }
 }
 
 variable "upwind_client_secret" {
-  description = "The client secret for authentication with the Upwind Authorization Service. Required for self-hosted onboarding; not used when saas_enabled is true."
+  description = "The client secret for authentication with the Upwind Authorization Service. Required for legacy client-secret onboarding; not used when saas_enabled or use_workload_identity_federation is true."
   type        = string
   sensitive   = true
   default     = ""
 
   validation {
-    condition     = var.saas_enabled || var.upwind_client_secret != ""
-    error_message = "upwind_client_secret must be provided and cannot be empty for self-hosted onboarding (not required when saas_enabled = true)."
+    condition     = var.saas_enabled || var.use_workload_identity_federation || var.upwind_client_secret != ""
+    error_message = "upwind_client_secret must be provided and cannot be empty for legacy client-secret onboarding (not required when saas_enabled or use_workload_identity_federation is true)."
   }
 }
 
@@ -210,9 +210,15 @@ variable "azure_cloudscanner_location" {
 }
 
 variable "disable_function_scanning" {
-  description = "If set to true will disable Storage Blob Data Reader role assignment for upwind-cs-vmss-identity"
+  description = "Legacy opt-out (poorly named): if true, disables the Storage Blob Data Reader / Storage File Data Privileged Reader grants that back DSPM. Retained for backwards compatibility; prefer upwind_feature_dspm_enabled to control DSPM. DSPM is enabled only when upwind_feature_dspm_enabled is true AND this is false."
   type        = bool
   default     = false
+}
+
+variable "upwind_feature_dspm_enabled" {
+  description = "Opt-in control for Upwind DSPM (Data Security Posture Management). When true (default), onboarding grants data-plane blob read (Storage Blob Data Reader / Storage File Data Privileged Reader) and, in SaaS mode, mints the DSPM marker role the CloudScanner feature gate detects. Setting this to false ALSO disables Azure Function scanning: Function apps store their code in an Azure storage account, and reading that code relies on the same Storage Blob Data Reader grant - so turning DSPM off removes function-code visibility too. Coexists with the legacy disable_function_scanning: DSPM (and function scanning) is provisioned only when this is true AND disable_function_scanning is false."
+  type        = bool
+  default     = true
 }
 
 variable "cloudapi_include_subscriptions" {
@@ -324,6 +330,17 @@ variable "saas_enabled" {
   default     = false
 }
 
+variable "use_workload_identity_federation" {
+  description = "Self-hosted (outpost) mode: authenticate via workload identity federation instead of a client secret (UP-3278). When true, no app registration or client secret is created in this tenant and no credentials are submitted to Upwind; instead the service principal of the org's Upwind-minted WIF app registration is materialized here and granted the self-hosted role set. The WIF app registration is the same Fetcher app the SaaS mode consents, so it is supplied via the same fetcher_app_client_id / fetcher_app_service_principal_object_id inputs. Requires the org to be WIF-enabled on the Upwind side (azure-auth-service-enabled). Set false for the legacy client-secret flow. Ignored when saas_enabled is true."
+  type        = bool
+  default     = true
+
+  validation {
+    condition     = !(var.use_workload_identity_federation && !var.saas_enabled && (var.azure_application_client_id != null || var.azure_application_service_principal_object_id != null || var.azure_application_client_secret != null))
+    error_message = "The legacy existing-app inputs (azure_application_client_id / azure_application_service_principal_object_id / azure_application_client_secret) cannot be combined with workload identity federation. Set use_workload_identity_federation = false to keep the client-secret flow, or drop the legacy app inputs."
+  }
+}
+
 variable "snapshot_app_client_id" {
   description = "SaaS mode: client ID of Upwind's multi-tenant Snapshot app registration. Its service principal is materialized in the customer tenant and granted read-only roles at the tenant-root management group (Reader + a CloudScannerTargetRole custom role + Storage Blob/File data-plane readers), plus snapshot write/delete (Disk Snapshot Contributor + Data Operator for Managed Disks) confined to the central snapshots resource group in the orchestrator subscription (see customer_snapshot_resource_group). Required when saas_enabled is true, unless snapshot_app_service_principal_object_id is provided."
   type        = string
@@ -336,7 +353,7 @@ variable "snapshot_app_client_id" {
 }
 
 variable "fetcher_app_client_id" {
-  description = "SaaS mode: client ID of Upwind's multi-tenant Fetcher app registration. Its service principal is materialized in the customer tenant and granted, at the tenant-root management group, the outpost app-registration role set: the built-in read roles (var.azure_roles) + a custom role (var.azure_custom_role_permissions). Required when saas_enabled is true, unless fetcher_app_service_principal_object_id is provided."
+  description = "Client ID of the org's Upwind-minted multi-tenant Fetcher (WIF) app registration, shown in the Upwind console. SaaS mode: its service principal is materialized in the customer tenant and granted, at the tenant-root management group, the outpost app-registration role set: the built-in read roles (var.azure_roles) + a custom role (var.azure_custom_role_permissions). WIF mode: the same service principal is materialized and granted the full self-hosted role set instead. Required when saas_enabled or use_workload_identity_federation is true, unless fetcher_app_service_principal_object_id is provided."
   type        = string
   default     = ""
 
@@ -358,7 +375,7 @@ variable "snapshot_app_service_principal_object_id" {
 }
 
 variable "fetcher_app_service_principal_object_id" {
-  description = "SaaS mode (optional): object ID of an existing service principal for Upwind's Fetcher app registration in the customer tenant. Provide this when the SP has already been created out-of-band (e.g. via admin consent / `az ad sp create`) and the Terraform runner lacks Microsoft Graph permissions to create it. When set, the module skips creating the service principal and assigns roles to this object ID directly; fetcher_app_client_id is then not required."
+  description = "SaaS or WIF mode (optional): object ID of an existing service principal for the org's Fetcher (WIF) app registration in the customer tenant. Provide this when the SP has already been created out-of-band (e.g. via admin consent / `az ad sp create`) and the Terraform runner lacks Microsoft Graph permissions to create it. When set, the module skips creating the service principal and assigns roles to this object ID directly; fetcher_app_client_id is then not required."
   type        = string
   default     = ""
 

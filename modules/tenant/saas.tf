@@ -63,14 +63,19 @@ locals {
     "${pair[0]}|${pair[1]}" => { scope = pair[0], role = pair[1] }
   } : {}
 
-  # Snapshot SP worker data-plane roles.
-  saas_snapshot_worker_role_assignments = var.saas_enabled ? {
+  # Snapshot SP worker data-plane roles. These back DSPM (blob/file content read), so
+  # they are gated on DSPM being enabled (local.dspm_enabled) in addition to saas_enabled.
+  saas_snapshot_worker_role_assignments = (var.saas_enabled && local.dspm_enabled) ? {
     for pair in setproduct(local.normalized_management_group_ids, local.saas_snapshot_worker_roles) :
     "${pair[0]}|${pair[1]}" => { scope = pair[0], role = pair[1] }
   } : {}
 
   # Snapshot SP write/delete roles, keyed by role - scoped to the central RG only.
   saas_snapshot_write_role_assignments = var.saas_enabled ? { for role in local.saas_snapshot_write_roles : role => role } : {}
+
+  # DSPM marker role scopes - minted only when DSPM is enabled, alongside the worker
+  # data-plane grant above, so "marker exists <=> DSPM provisioned" holds.
+  saas_dspm_marker_scopes = (var.saas_enabled && local.dspm_enabled) ? toset(local.normalized_management_group_ids) : []
 
   # Snapshot SP CloudScannerTargetRole scopes (target-disk read + begin-access +
   # ACR pull - identical actions to the outpost worker's target role).
@@ -188,6 +193,54 @@ resource "azurerm_role_assignment" "saas_snapshot_target_role" {
   principal_id       = local.saas_snapshot_sp_object_id
   scope              = each.value.scope
   depends_on         = [time_sleep.saas_snapshot_target_role_wait[0]]
+}
+
+# --- DSPM feature-gate marker ---
+#
+# CloudScanner's DSPM feature gate needs a Graph-free way to tell that DSPM (data-plane
+# blob read) was provisioned for a SaaS org. It can't key off the built-in Storage Blob
+# Data Reader assignment above: that only carries a bare principal GUID, and resolving it
+# to "our" Snapshot SP would require the service-principal inventory, which is only
+# collected if the customer granted Microsoft Graph access (not guaranteed).
+#
+# So we mint a deterministically-named custom role DEFINITION per MG scope, alongside the
+# data-plane grant (same saas_target_role_scopes / saas_enabled gating). It carries only a
+# benign management-plane read (no data_actions) so - unlike the built-in data readers - it
+# can be created at management-group scope. Role definitions are collected via
+# management-plane reads, so the gate detects it with no Graph dependency via
+# SearchAzureRoleDefinitions(roleName like "UpwindDSPMEnabled-{orgID}%").
+#
+# The "UpwindDSPMEnabled" name prefix is a contract with cloudscanner
+# cloudproviders.DSPMRolePrefix and the serverless saas-mg-roles.bicep dspmMarkerRole - a
+# rename must move on all three sides together.
+resource "azurerm_role_definition" "saas_dspm_marker" {
+  for_each    = local.saas_dspm_marker_scopes
+  name        = "UpwindDSPMEnabled-${local.resource_suffix}-${split("/", each.value)[length(split("/", each.value)) - 1]}"
+  description = "Marker role signalling that Upwind DSPM (data-plane blob read) is provisioned for this org; detected by the CloudScanner DSPM feature gate."
+  scope       = each.value
+  permissions {
+    actions     = ["Microsoft.Storage/storageAccounts/read"]
+    not_actions = []
+  }
+}
+
+# Wait for the marker role definitions to propagate before assigning them.
+resource "time_sleep" "saas_dspm_marker_wait" {
+  count           = (var.saas_enabled && local.dspm_enabled) ? 1 : 0
+  depends_on      = [azurerm_role_definition.saas_dspm_marker]
+  create_duration = var.azure_role_definition_wait_time
+}
+
+# Snapshot SP -> DSPM marker role at each MG scope. Assigning (not just defining) keeps the
+# role from reading as orphaned to cleanup tooling; the Snapshot SP already holds Reader, so
+# this grants zero additional access.
+resource "azurerm_role_assignment" "saas_dspm_marker" {
+  for_each = azurerm_role_definition.saas_dspm_marker
+
+  role_definition_id = each.value.role_definition_resource_id
+  principal_id       = local.saas_snapshot_sp_object_id
+  scope              = each.value.scope
+  depends_on         = [time_sleep.saas_dspm_marker_wait[0]]
 }
 
 # endregion
