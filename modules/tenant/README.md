@@ -40,6 +40,7 @@ No modules.
 | [azuread_service_principal.saas_fetcher](https://registry.terraform.io/providers/hashicorp/azuread/latest/docs/resources/service_principal) | resource |
 | [azuread_service_principal.saas_snapshot](https://registry.terraform.io/providers/hashicorp/azuread/latest/docs/resources/service_principal) | resource |
 | [azuread_service_principal.this](https://registry.terraform.io/providers/hashicorp/azuread/latest/docs/resources/service_principal) | resource |
+| [azuread_service_principal.wif](https://registry.terraform.io/providers/hashicorp/azuread/latest/docs/resources/service_principal) | resource |
 | [azurerm_key_vault.orgwide_key_vault](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/key_vault) | resource |
 | [azurerm_key_vault_secret.scanner_client_id](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/key_vault_secret) | resource |
 | [azurerm_key_vault_secret.scanner_client_secret](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/key_vault_secret) | resource |
@@ -146,20 +147,21 @@ No modules.
 | <a name="input_upwind_integration_endpoint"></a> [upwind\_integration\_endpoint](#input\_upwind\_integration\_endpoint) | The Integration API endpoint. | `string` | `"https://integration.upwind.io"` | no |
 | <a name="input_upwind_organization_id"></a> [upwind\_organization\_id](#input\_upwind\_organization\_id) | The identifier of the Upwind organization to integrate with. | `string` | n/a | yes |
 | <a name="input_upwind_region"></a> [upwind\_region](#input\_upwind\_region) | The region where the Upwind components will be deployed. Must be 'us', 'eu', 'ap' or 'me' | `string` | `"us"` | no |
+| <a name="input_use_workload_identity_federation"></a> [use\_workload\_identity\_federation](#input\_use\_workload\_identity\_federation) | Self-hosted (outpost) mode: authenticate via workload identity federation instead of a client secret (UP-3278). When true, no app registration or client secret is created in this tenant and no credentials are submitted to Upwind; instead the service principal of the org's Upwind-minted WIF app registration is materialized here and granted the self-hosted role set. The WIF app registration is the same Fetcher app the SaaS mode consents, so it is supplied via the same fetcher\_app\_client\_id / fetcher\_app\_service\_principal\_object\_id inputs. Requires the org to be WIF-enabled on the Upwind side (azure-auth-service-enabled). Set false for the legacy client-secret flow. Ignored when saas\_enabled is true. | `bool` | `true` | no |
 
 ## Outputs
 
 | Name | Description |
 |------|-------------|
-| <a name="output_azure_application_client_id"></a> [azure\_application\_client\_id](#output\_azure\_application\_client\_id) | The unique identifier for the Azure AD application (client). |
+| <a name="output_azure_application_client_id"></a> [azure\_application\_client\_id](#output\_azure\_application\_client\_id) | The unique identifier for the Azure AD application (client). In WIF mode this is the org's Upwind-minted WIF app registration (null when only fetcher\_app\_service\_principal\_object\_id was supplied). |
 | <a name="output_azure_application_client_secret"></a> [azure\_application\_client\_secret](#output\_azure\_application\_client\_secret) | The client secret for the Azure AD application. |
-| <a name="output_azure_application_name"></a> [azure\_application\_name](#output\_azure\_application\_name) | The display name for the Azure AD application. |
+| <a name="output_azure_application_name"></a> [azure\_application\_name](#output\_azure\_application\_name) | The display name for the Azure AD application. Null in WIF mode (the app registration lives in Upwind's tenant, not this one). |
 | <a name="output_azure_service_principal_id"></a> [azure\_service\_principal\_id](#output\_azure\_service\_principal\_id) | The unique identifier for the Azure AD service principal. |
 | <a name="output_azure_tenant_id"></a> [azure\_tenant\_id](#output\_azure\_tenant\_id) | The unique identifier for the current Azure tenant. |
 | <a name="output_key_vault_log_analytics_workspace_id"></a> [key\_vault\_log\_analytics\_workspace\_id](#output\_key\_vault\_log\_analytics\_workspace\_id) | The ID of the Log Analytics Workspace used for Key Vault diagnostic logging, or null if logging is not enabled. |
 | <a name="output_key_vault_name"></a> [key\_vault\_name](#output\_key\_vault\_name) | The name of the CloudScanner Key Vault, or null if CloudScanner is not enabled. When key\_vault\_private\_network is true, add the scanner credentials from the Upwind console to this vault as secrets named 'upwind-client-id' and 'upwind-client-secret' (names must be exact). |
-| <a name="output_organizational_credentials"></a> [organizational\_credentials](#output\_organizational\_credentials) | The Upwind organizational credentials that were created to onboard the Azure tenant. |
-| <a name="output_pending_tenant"></a> [pending\_tenant](#output\_pending\_tenant) | The tenant ID that is pending onboarding, or null if already onboarded. |
+| <a name="output_organizational_credentials"></a> [organizational\_credentials](#output\_organizational\_credentials) | The Upwind organizational credentials that were created to onboard the Azure tenant. Empty in SaaS and WIF modes (both secretless: no Upwind API call is made, so existing credentials are not queried). |
+| <a name="output_pending_tenant"></a> [pending\_tenant](#output\_pending\_tenant) | The tenant ID that is pending onboarding, or null if already onboarded. Always the tenant ID in SaaS and WIF modes (the onboarding-status lookup is skipped along with the other Upwind API calls). |
 | <a name="output_saas_fetcher_service_principal_object_id"></a> [saas\_fetcher\_service\_principal\_object\_id](#output\_saas\_fetcher\_service\_principal\_object\_id) | SaaS mode: object ID of the Fetcher app registration service principal - supplied via fetcher\_app\_service\_principal\_object\_id, or created by the module (null when saas\_enabled is false). |
 | <a name="output_saas_snapshot_service_principal_object_id"></a> [saas\_snapshot\_service\_principal\_object\_id](#output\_saas\_snapshot\_service\_principal\_object\_id) | SaaS mode: object ID of the Snapshot app registration service principal - supplied via snapshot\_app\_service\_principal\_object\_id, or created by the module (null when saas\_enabled is false). |
 | <a name="output_upwind_next_step"></a> [upwind\_next\_step](#output\_upwind\_next\_step) | The instructions for the next step in the process. |

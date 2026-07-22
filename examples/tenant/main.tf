@@ -35,6 +35,9 @@ module "upwind_integration_azure_onboarding" {
   count  = var.create ? 1 : 0 # Conditionally create resources based on the create variable.
   source = "upwindsecurity/onboarding/azurerm//modules/tenant"
 
+  # Legacy client-secret flow; see examples/tenant-wif for workload identity federation.
+  use_workload_identity_federation = false
+
   # Upwind organization configuration.
   # Replace these example values with your actual Upwind organization details.
   upwind_organization_id = "org_example12345"
