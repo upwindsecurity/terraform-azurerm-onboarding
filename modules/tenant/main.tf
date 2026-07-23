@@ -108,12 +108,28 @@ locals {
     random_id.uid.hex,
   )
 
+  # Auto-detect a pre-existing (legacy client-secret) deployment. WIF defaults on
+  # (UP-3947), but if the caller still supplies any client-secret-era input we keep
+  # the legacy flow so an existing deployment can run `apply` (e.g. to add
+  # subscriptions or tags) without WIF trying to tear down its app registration or
+  # stop submitting credentials. Only NON-sensitive signals are used, so the result
+  # stays usable in count/for_each (a sensitive value there is a plan error). The
+  # client id is a sufficient discriminator: a legacy deployment always set
+  # upwind_client_id (to submit the credential) or azure_application_client_id
+  # (existing-app flow), whereas a fresh WIF deployment sets neither.
+  legacy_inputs_present = (
+    var.upwind_client_id != "" ||
+    var.azure_application_client_id != null ||
+    var.azure_application_service_principal_object_id != null
+  )
+
   # Outpost WIF (UP-3278): secretless self-hosted onboarding. The auth identity is the
   # org's Upwind-minted WIF app registration; this tenant only materializes its consented
   # service principal and grants it the self-hosted role set. No app registration, no
   # client secret, no credential submission. Not applicable in SaaS mode (already
-  # secretless via its own app regs).
-  wif_enabled      = var.use_workload_identity_federation && !var.saas_enabled
+  # secretless via its own app regs), and suppressed when legacy inputs are detected
+  # (see legacy_inputs_present) so upgrading an existing deployment in place is safe.
+  wif_enabled      = var.use_workload_identity_federation && !var.saas_enabled && !local.legacy_inputs_present
   create_wif_sp    = local.wif_enabled && var.fetcher_app_service_principal_object_id == ""
   wif_sp_object_id = var.fetcher_app_service_principal_object_id != "" ? var.fetcher_app_service_principal_object_id : one(azuread_service_principal.wif[*].object_id)
 
@@ -263,6 +279,16 @@ resource "azuread_service_principal" "wif" {
       condition     = var.fetcher_app_client_id != ""
       error_message = "use_workload_identity_federation requires fetcher_app_client_id (to create the SP) or fetcher_app_service_principal_object_id (to use an existing one). Both are available in the Upwind console after adding the Azure organization; alternatively set use_workload_identity_federation = false for the legacy client-secret flow."
     }
+  }
+}
+
+# Surface the WIF auto-fallback (UP-3947) as a non-fatal plan warning rather than
+# silently switching modes: WIF is the default, but legacy client-secret inputs were
+# detected so the module is keeping the legacy flow for this deployment.
+check "wif_auto_fallback" {
+  assert {
+    condition     = !(var.use_workload_identity_federation && !var.saas_enabled && local.legacy_inputs_present)
+    error_message = "use_workload_identity_federation defaults to true, but legacy client-secret inputs were detected (upwind_client_id / azure_application_client_id / azure_application_service_principal_object_id), so this deployment is staying on the legacy client-secret flow. This is expected when upgrading an existing deployment in place. To move to WIF, remove those inputs; to pin the legacy flow and silence this notice, set use_workload_identity_federation = false."
   }
 }
 
