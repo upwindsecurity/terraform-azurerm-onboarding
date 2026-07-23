@@ -11,6 +11,9 @@ variable "upwind_client_id" {
   default     = ""
 
   validation {
+    # Mirrors local.wif_enabled (= use_workload_identity_federation && !saas_enabled):
+    # required unless SaaS or WIF. Validation blocks cannot reference locals, so the
+    # condition is inlined here - keep it in sync with local.wif_enabled in main.tf.
     condition     = var.saas_enabled || var.use_workload_identity_federation || var.upwind_client_id != ""
     error_message = "upwind_client_id must be provided and cannot be empty for legacy client-secret onboarding (not required when saas_enabled or use_workload_identity_federation is true)."
   }
@@ -23,6 +26,9 @@ variable "upwind_client_secret" {
   default     = ""
 
   validation {
+    # Mirrors local.wif_enabled (= use_workload_identity_federation && !saas_enabled):
+    # required unless SaaS or WIF. Validation blocks cannot reference locals, so the
+    # condition is inlined here - keep it in sync with local.wif_enabled in main.tf.
     condition     = var.saas_enabled || var.use_workload_identity_federation || var.upwind_client_secret != ""
     error_message = "upwind_client_secret must be provided and cannot be empty for legacy client-secret onboarding (not required when saas_enabled or use_workload_identity_federation is true)."
   }
@@ -333,7 +339,7 @@ variable "saas_enabled" {
 variable "use_workload_identity_federation" {
   description = "Self-hosted (outpost) mode: authenticate via workload identity federation instead of a client secret (UP-3278). When true, no app registration or client secret is created in this tenant and no credentials are submitted to Upwind; instead the service principal of the org's Upwind-minted WIF app registration is materialized here and granted the self-hosted role set. The WIF app registration is the same Fetcher app the SaaS mode consents, so it is supplied via the same fetcher_app_client_id / fetcher_app_service_principal_object_id inputs. Requires the org to be WIF-enabled on the Upwind side (azure-auth-service-enabled). Set false for the legacy client-secret flow. Ignored when saas_enabled is true."
   type        = bool
-  default     = true
+  default     = false
 
   validation {
     condition     = !(var.use_workload_identity_federation && !var.saas_enabled && (var.azure_application_client_id != null || var.azure_application_service_principal_object_id != null || var.azure_application_client_secret != null))
