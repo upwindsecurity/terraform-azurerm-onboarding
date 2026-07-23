@@ -108,12 +108,22 @@ locals {
     random_id.uid.hex,
   )
 
+  # WIF requires a Fetcher (WIF) identity, which exists only when azure-auth-service is
+  # enabled on the Upwind side and the console has surfaced fetcher_app_client_id /
+  # fetcher_app_service_principal_object_id. The presence of either input is therefore
+  # the signal that the org is WIF-capable. Customers WITHOUT azure auth service have
+  # neither input (UP-3947).
+  wif_available = var.fetcher_app_client_id != "" || var.fetcher_app_service_principal_object_id != ""
+
   # Outpost WIF (UP-3278): secretless self-hosted onboarding. The auth identity is the
   # org's Upwind-minted WIF app registration; this tenant only materializes its consented
   # service principal and grants it the self-hosted role set. No app registration, no
   # client secret, no credential submission. Not applicable in SaaS mode (already
-  # secretless via its own app regs).
-  wif_enabled      = var.use_workload_identity_federation && !var.saas_enabled
+  # secretless via its own app regs). WIF stays the default, but engages only when a WIF
+  # identity is actually available: absent the fetcher_* inputs the org is not WIF-capable,
+  # so onboarding falls back to the legacy client-secret flow instead of failing the SP
+  # precondition - letting customers without azure auth service onboard (UP-3947).
+  wif_enabled      = var.use_workload_identity_federation && !var.saas_enabled && local.wif_available
   create_wif_sp    = local.wif_enabled && var.fetcher_app_service_principal_object_id == ""
   wif_sp_object_id = var.fetcher_app_service_principal_object_id != "" ? var.fetcher_app_service_principal_object_id : one(azuread_service_principal.wif[*].object_id)
 
