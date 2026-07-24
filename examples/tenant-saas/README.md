@@ -5,9 +5,31 @@ This example demonstrates secretless SaaS (provider-hosted) onboarding at the te
 ## Features
 
 - **Mode**: SaaS / provider-hosted (`saas_enabled = true`)
-- **Scoping**: Tenant root management group (roles inherited by all subscriptions, current and future)
+- **Scoping**: Tenant, Management Group, or Subscription — same three options as the outpost path (this example uses Tenant)
 - **Secrets**: None — the customer tenant holds no app registration, Key Vault, managed identities, custom roles, or scanner credentials
 - **Upwind API**: None — no Upwind client credentials are required
+
+## Scope options
+
+SaaS supports the same three scoping options as the self-hosted (outpost) path. Pick one:
+
+```hcl
+# 1. Tenant (this example) — roles at the tenant-root management group, inherited by all subscriptions
+azure_tenant_id = "12345678-1234-1234-1234-123456789012"
+
+# 2. Management group — roles at specific management group(s)
+azure_management_group_ids = ["prod-mg", "dev-mg"]   # do NOT set azure_tenant_id
+
+# 3. Subscription — roles scoped to specific subscriptions only
+azure_tenant_id                    = "12345678-1234-1234-1234-123456789012"
+cloudapi_include_subscriptions     = ["<sub-id>"]   # Fetcher (inventory) scope
+cloudscanner_include_subscriptions = ["<sub-id>"]   # Snapshot (scanning) scope
+```
+
+The Snapshot SP (scanning) follows the `cloudscanner_*` filters; the Fetcher SP (inventory) follows
+the `cloudapi_*` filters. Regardless of scope, snapshot **write/delete** is always confined to the
+central snapshots RG in the orchestrator subscription (`customer_snapshot_resource_group`). Use the
+subscription option when the runner has RBAC-admin only on specific subscriptions, not the tenant/MG.
 
 ## Configuration
 

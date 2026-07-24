@@ -3,31 +3,33 @@
 # In SaaS mode (var.saas_enabled) the customer tenant holds no secrets, managed
 # identities, or compute. The customer consents to Upwind's two multi-tenant app
 # registrations (Snapshot + Fetcher); this materializes their service principals
-# in the customer tenant, which are then granted scoped ARM roles at the
-# tenant-root management group - inherited by every subscription, current and
-# future. The self-hosted resources (app registration, CSPM role assignments,
-# Key Vault, managed identities, custom roles, credential submission) are gated
-# off when saas_enabled is true.
+# in the customer tenant, which are then granted scoped ARM roles. Scope follows
+# the same three options as the outpost path - Tenant (tenant-root MG), Management
+# Group, or Subscription (via the cloudapi_/cloudscanner_ include/exclude filters).
+# The self-hosted resources (app registration, CSPM role assignments, Key Vault,
+# managed identities, custom roles, credential submission) are gated off when
+# saas_enabled is true.
 #
 # The role sets mirror the self-hosted (outpost) principals so the two paths stay
-# in lock-step - the same source of truth (var.azure_roles / var.azure_custom_role_permissions)
-# feeds both. Application translation (from the outpost path / mg-roles.bicep):
-#   service principal (app registration) -> Fetcher SP  (read-level inventory)
-#   worker identity                      -> Snapshot SP (snapshotting)
+# in lock-step - the same source of truth (var.azure_roles / var.azure_custom_role_permissions
+# and the include/exclude subscription filters) feeds both. Application translation
+# (from the outpost path / mg-roles.bicep):
+#   service principal (app registration) -> Fetcher SP  (read-level inventory, cloudapi scope)
+#   worker identity                      -> Snapshot SP (snapshotting, cloudscanner scope)
 #
-# Snapshot write/delete is NOT granted tenant-wide. Only non-destructive roles are
-# assigned at the management group (Reader, read-only CloudScannerTargetRole, worker
-# storage readers, and the Fetcher's read roles). The Snapshot SP's snapshot
-# write/delete (Disk Snapshot Contributor + Data Operator) is confined to a single
-# central snapshots resource group created in the orchestrator subscription. The
-# worker creates each snapshot in that RG, sourcing the customer disk it reads via
-# the MG-wide read grant.
+# Snapshot write/delete is NOT granted at the read scope. Only non-destructive roles
+# are assigned there (Reader, read-only CloudScannerTargetRole, worker storage
+# readers, and the Fetcher's read roles). The Snapshot SP's snapshot write/delete
+# (Disk Snapshot Contributor + Data Operator) is confined to a single central
+# snapshots resource group created in the orchestrator subscription. The worker
+# creates each snapshot in that RG, sourcing the customer disk it reads via the
+# read grant.
 
 locals {
   # --- Snapshot SP (mirrors the outpost worker identity) ---
 
-  # Broad, read-only built-in role at MG scope. Snapshot write/delete is NOT here -
-  # it is confined to the central snapshots RG (see saas_snapshot_write_roles below).
+  # Broad, read-only built-in role at the snapshot (read) scope. Snapshot write/delete
+  # is NOT here - it is confined to the central snapshots RG (see saas_snapshot_write_roles).
   saas_snapshot_roles = ["Reader"]
 
   # Snapshot write/delete roles, assigned ONLY on the central snapshots RG in the
@@ -38,8 +40,8 @@ locals {
   saas_snapshot_resource_group_name = var.customer_snapshot_resource_group != "" ? var.customer_snapshot_resource_group : "upwind-cs-rg-${var.upwind_organization_id}"
 
   # Worker data-plane read roles - mirrors the outpost storage_reader /
-  # storage_file_reader assignments (bicep workerBuiltinRoles). Assigned at MG
-  # scope so the Snapshot SP can read across every subscription in the tenant.
+  # storage_file_reader assignments (bicep workerBuiltinRoles). Assigned at the
+  # snapshot (cloudscanner) scope so the Snapshot SP can read blob/file content there.
   saas_snapshot_worker_roles = ["Storage Blob Data Reader", "Storage File Data Privileged Reader"]
 
   # --- SP materialization ---
@@ -55,18 +57,32 @@ locals {
   saas_snapshot_sp_object_id = var.snapshot_app_service_principal_object_id != "" ? var.snapshot_app_service_principal_object_id : one(azuread_service_principal.saas_snapshot[*].object_id)
   saas_fetcher_sp_object_id  = var.fetcher_app_service_principal_object_id != "" ? var.fetcher_app_service_principal_object_id : one(azuread_service_principal.saas_fetcher[*].object_id)
 
-  # --- Assignment maps (keyed by "scope|role" across the MG scope(s)) ---
+  # --- Scope resolution (Tenant / Management Group / Subscription) ---
+  #
+  # SaaS supports the same three scoping options as the outpost path, reusing the
+  # same inputs so the two stay in lock-step:
+  #   * Tenant       - azure_tenant_id set, no filters  -> tenant-root MG
+  #   * Mgmt group   - azure_management_group_ids set    -> those MGs
+  #   * Subscription - cloudapi_/cloudscanner_include(exclude)_subscriptions set -> those subs
+  # The Snapshot SP (scanning) follows the cloudscanner scope; the Fetcher SP
+  # (inventory) follows the cloudapi scope. Both fall back to the management-group
+  # scope when no subscription filter is set - so Tenant/MG behavior is unchanged.
+  # Snapshot write/delete stays confined to the central RG regardless of scope.
+  saas_snapshot_scopes = local.cloudscanner_scopes   # cloudscanner_iam.tf: include/exclude subs, else MG
+  saas_fetcher_scopes  = local.base_effective_scopes # main.tf: cloudapi include/exclude subs, else MG
 
-  # Snapshot SP built-in roles.
+  # --- Assignment maps (keyed by "scope|role") ---
+
+  # Snapshot SP built-in read roles at the snapshot (cloudscanner) scope(s).
   saas_snapshot_role_assignments = var.saas_enabled ? {
-    for pair in setproduct(local.normalized_management_group_ids, local.saas_snapshot_roles) :
+    for pair in setproduct(local.saas_snapshot_scopes, local.saas_snapshot_roles) :
     "${pair[0]}|${pair[1]}" => { scope = pair[0], role = pair[1] }
   } : {}
 
   # Snapshot SP worker data-plane roles. These back DSPM (blob/file content read), so
   # they are gated on DSPM being enabled (local.dspm_enabled) in addition to saas_enabled.
   saas_snapshot_worker_role_assignments = (var.saas_enabled && local.dspm_enabled) ? {
-    for pair in setproduct(local.normalized_management_group_ids, local.saas_snapshot_worker_roles) :
+    for pair in setproduct(local.saas_snapshot_scopes, local.saas_snapshot_worker_roles) :
     "${pair[0]}|${pair[1]}" => { scope = pair[0], role = pair[1] }
   } : {}
 
@@ -75,24 +91,23 @@ locals {
 
   # DSPM marker role scopes - minted only when DSPM is enabled, alongside the worker
   # data-plane grant above, so "marker exists <=> DSPM provisioned" holds.
-  saas_dspm_marker_scopes = (var.saas_enabled && local.dspm_enabled) ? toset(local.normalized_management_group_ids) : []
+  saas_dspm_marker_scopes = (var.saas_enabled && local.dspm_enabled) ? toset(local.saas_snapshot_scopes) : []
 
   # Snapshot SP CloudScannerTargetRole scopes (target-disk read + begin-access +
   # ACR pull - identical actions to the outpost worker's target role).
-  saas_target_role_scopes = var.saas_enabled ? toset(local.normalized_management_group_ids) : []
+  saas_target_role_scopes = var.saas_enabled ? toset(local.saas_snapshot_scopes) : []
 
   # --- Fetcher SP (mirrors the outpost app-registration SP) ---
 
-  # Fetcher SP built-in read roles (var.azure_roles - same list the outpost app
-  # registration gets; bicep builtinRoles).
+  # Fetcher SP built-in read roles (var.azure_roles) at the fetcher (cloudapi) scope(s).
   saas_fetcher_role_assignments = var.saas_enabled ? {
-    for pair in setproduct(local.normalized_management_group_ids, var.azure_roles) :
+    for pair in setproduct(local.saas_fetcher_scopes, var.azure_roles) :
     "${pair[0]}|${pair[1]}" => { scope = pair[0], role = pair[1] }
   } : {}
 
   # Fetcher SP custom-role scopes (var.azure_custom_role_permissions - same custom
   # role the outpost app registration gets; bicep customRole).
-  saas_fetcher_custom_role_scopes = (var.saas_enabled && length(var.azure_custom_role_permissions) > 0) ? toset(local.normalized_management_group_ids) : []
+  saas_fetcher_custom_role_scopes = (var.saas_enabled && length(var.azure_custom_role_permissions) > 0) ? toset(local.saas_fetcher_scopes) : []
 }
 
 # Materialize the consented service principal for Upwind's Snapshot app reg
