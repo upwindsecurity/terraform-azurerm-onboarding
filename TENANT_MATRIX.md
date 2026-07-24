@@ -61,6 +61,10 @@ Each option is demonstrated in a dedicated example.
 
 * **Authentication** - How Upwind authenticates to the tenant (UP-3278)
   * Workload identity federation, secretless (default): `use_workload_identity_federation = true`
+    * **Note**: WIF engages only when a fetcher identity is available (`fetcher_app_client_id` or
+      `fetcher_app_service_principal_object_id` set, i.e. the org has azure-auth-service enabled). With
+      no `fetcher_*` input the module auto-falls-back to the legacy client-secret flow, so orgs without
+      azure auth service still onboard (UP-3947).
     * Example: [`examples/tenant-wif/`](examples/tenant-wif/)
   * Legacy client secret: `use_workload_identity_federation = false`
     * Example: [`examples/tenant-basic/`](examples/tenant-basic/)
