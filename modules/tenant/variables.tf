@@ -331,14 +331,9 @@ variable "saas_enabled" {
 }
 
 variable "use_workload_identity_federation" {
-  description = "Self-hosted (outpost) mode: authenticate via workload identity federation instead of a client secret (UP-3278). When true, no app registration or client secret is created in this tenant and no credentials are submitted to Upwind; instead the service principal of the org's Upwind-minted WIF app registration is materialized here and granted the self-hosted role set. The WIF app registration is the same Fetcher app the SaaS mode consents, so it is supplied via the same fetcher_app_client_id / fetcher_app_service_principal_object_id inputs. Requires the org to be WIF-enabled on the Upwind side (azure-auth-service-enabled). Set false for the legacy client-secret flow. Ignored when saas_enabled is true."
+  description = "Self-hosted (outpost) mode: authenticate via workload identity federation instead of a client secret (UP-3278). When true (the default), the module uses WIF ONLY IF a WIF identity is available - i.e. fetcher_app_client_id or fetcher_app_service_principal_object_id is set, which happens when the org has azure-auth-service enabled and the Upwind console has surfaced the Fetcher app. In WIF mode no app registration or client secret is created in this tenant and no credentials are submitted to Upwind; instead the service principal of the org's Upwind-minted WIF app registration (the same Fetcher app the SaaS mode consents) is materialized here and granted the self-hosted role set. AUTO-FALLBACK: if no fetcher_* input is provided (org WITHOUT azure auth service, or an existing client-secret deployment), the module keeps the legacy client-secret flow instead of failing - so those customers can still onboard. Set false to pin the legacy client-secret flow explicitly regardless of fetcher_* inputs. Ignored when saas_enabled is true."
   type        = bool
   default     = true
-
-  validation {
-    condition     = !(var.use_workload_identity_federation && !var.saas_enabled && (var.azure_application_client_id != null || var.azure_application_service_principal_object_id != null || var.azure_application_client_secret != null))
-    error_message = "The legacy existing-app inputs (azure_application_client_id / azure_application_service_principal_object_id / azure_application_client_secret) cannot be combined with workload identity federation. Set use_workload_identity_federation = false to keep the client-secret flow, or drop the legacy app inputs."
-  }
 }
 
 variable "snapshot_app_client_id" {
