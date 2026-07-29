@@ -49,8 +49,13 @@ in the customer tenant and assigns them scoped roles:
 - Fetcher SP (at each management group): the built-in read roles (`azure_roles`) + a custom role
   (`azure_custom_role_permissions`)
 
-The orchestrator subscription may sit outside the management groups; the module adds it as an
-explicit scope so the central snapshots resource group can be created and managed there.
+In SaaS mode both service principals are granted roles at the management groups and nowhere else —
+unlike the outpost path, the orchestrator subscription is not added as an extra role-assignment
+scope. The central snapshots resource group is created there by the Terraform runner's own
+credentials, and the Snapshot SP's write/delete roles are scoped to that resource group. So if the
+orchestrator subscription sits outside the management groups, it is not inventoried or scanned —
+add it to `azure_management_group_ids`' hierarchy, or name it in the `cloudapi_*` filters, if you
+want it covered.
 
 No self-hosted resources (app registration, Key Vault, managed identities, custom roles) and no
 scanner credentials are created.
