@@ -18,6 +18,7 @@ SaaS supports the same three scoping options as the self-hosted (outpost) path. 
 azure_tenant_id = "12345678-1234-1234-1234-123456789012"
 
 # 2. Management group — roles at specific management group(s)
+#    Full example: ../tenant-saas-management-groups
 azure_management_group_ids = ["prod-mg", "dev-mg"]   # do NOT set azure_tenant_id
 
 # 3. Subscription — roles scoped to specific subscriptions only
@@ -30,6 +31,11 @@ The Snapshot SP (scanning) follows the `cloudscanner_*` filters; the Fetcher SP 
 the `cloudapi_*` filters. Regardless of scope, snapshot **write/delete** is always confined to the
 central snapshots RG in the orchestrator subscription (`customer_snapshot_resource_group`). Use the
 subscription option when the runner has RBAC-admin only on specific subscriptions, not the tenant/MG.
+
+Under the management group option nothing reaches outside the named hierarchy: the exclude filters
+are expanded against the subscriptions under those management groups (nested groups included), not
+the tenant-wide subscription list. See
+[tenant-saas-management-groups](../tenant-saas-management-groups/).
 
 ## Configuration
 

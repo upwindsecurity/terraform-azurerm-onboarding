@@ -10,6 +10,12 @@ locals {
     mg_id : "/providers/Microsoft.Management/managementGroups/${mg_id}"
   ]
 
+  # Bare management group names - the azurerm_management_group data source keys
+  # off the name, never the full resource ID.
+  management_group_names = [
+    for mg_id in local.management_group_ids : reverse(split("/", mg_id))[0]
+  ]
+
   # Create a map of existing organizational credentials (empty in SaaS mode -
   # the lookup is skipped along with the rest of the Upwind API calls).
   organizational_credentials = {
@@ -25,25 +31,57 @@ locals {
   # Determine if this tenant is pending onboarding (does not have existing credentials)
   pending_tenant = lookup(local.organizational_credentials, local.tenant_id, false) == false ? local.tenant_id : null
 
+  orchestrator_subscription_scope = "/subscriptions/${var.azure_orchestrator_subscription_id}"
+  using_sub_management_group      = var.azure_tenant_id == "" && length(var.azure_management_group_ids) > 0
+
+  # An exclude filter is the only thing that has to expand a management-group /
+  # tenant-root scope into an explicit per-subscription list.
+  using_exclude_subscriptions = (
+    length(var.cloudapi_exclude_subscriptions) > 0 ||
+    length(var.cloudscanner_exclude_subscriptions) > 0
+  )
+
+  # Where that expansion sources its subscriptions from. Management-group scoped
+  # onboarding walks its own hierarchy; only tenant-scoped onboarding reads the
+  # tenant-wide subscription list (see the two data sources below).
+  enumerate_management_group_subscriptions = local.using_exclude_subscriptions && local.using_sub_management_group
+  enumerate_tenant_subscriptions           = local.using_exclude_subscriptions && !local.using_sub_management_group
+
+  # Subscription universe the exclude filters are applied to.
+  #
+  # Management group scope (azure_management_group_ids set, azure_tenant_id empty):
+  # only the subscriptions under those management groups, nested ones included.
+  # It must never fall back to the tenant subscription list - that would grant
+  # roles on subscriptions outside the management group hierarchy and require
+  # tenant-wide visibility the runner may not have (the same failure mode the
+  # subscription scope option fixes for runners without tenant-root RBAC admin).
+  #
+  # Tenant scope (azure_tenant_id set): every subscription visible to the
+  # provider credentials, as before.
+  exclude_candidate_subscription_ids = local.using_sub_management_group ? distinct([
+    for sub_id in flatten([for mg in data.azurerm_management_group.scope : mg.all_subscription_ids]) :
+    reverse(split("/", sub_id))[0]
+    ]) : [
+    for sub in flatten(data.azurerm_subscriptions.all[*].subscriptions) : sub.subscription_id
+  ]
+
   # Determine effective scopes for service principal role assignments
   # Priority logic:
   # 1. If include list is provided: use only those subscriptions (overrides management groups)
   # 2. If exclude list is provided: expand to subscription-level assignments, excluding specified ones
-  #    - This allows combining with management groups by filtering all tenant subscriptions
+  #    - Under a management group scope the expansion covers that hierarchy only;
+  #      under a tenant scope it covers the tenant
   # 3. Otherwise: use management group scopes (or tenant root if azure_tenant_id is set)
   base_effective_scopes = length(var.cloudapi_include_subscriptions) > 0 ? [
     for sub_id in var.cloudapi_include_subscriptions :
     "/subscriptions/${sub_id}"
     ] : (
     length(var.cloudapi_exclude_subscriptions) > 0 ? [
-      for sub in data.azurerm_subscriptions.all.subscriptions :
-      "/subscriptions/${sub.subscription_id}"
-      if !contains(var.cloudapi_exclude_subscriptions, sub.subscription_id)
+      for sub_id in local.exclude_candidate_subscription_ids :
+      "/subscriptions/${sub_id}"
+      if !contains(var.cloudapi_exclude_subscriptions, sub_id)
     ] : local.normalized_management_group_ids
   )
-
-  orchestrator_subscription_scope = "/subscriptions/${var.azure_orchestrator_subscription_id}"
-  using_sub_management_group      = var.azure_tenant_id == "" && length(var.azure_management_group_ids) > 0
 
   # Determine final effective scopes with orchestrator subscription handling:
   #
@@ -162,8 +200,22 @@ locals {
 # Retrieve the current Azure AD client configuration.
 data "azuread_client_config" "current" {}
 
-# Get all subscriptions for exclude logic
-data "azurerm_subscriptions" "all" {}
+# Get all subscriptions visible to the provider credentials, for exclude logic.
+# Read only by tenant-scoped onboarding: a management group scoped onboarding
+# enumerates its own hierarchy instead (data.azurerm_management_group.scope), so
+# it never depends on - or is widened by - the tenant subscription list.
+data "azurerm_subscriptions" "all" {
+  count = local.enumerate_tenant_subscriptions ? 1 : 0
+}
+
+# The configured management groups, used to enumerate the subscriptions beneath
+# them for exclude logic. all_subscription_ids covers nested management groups,
+# so an exclude filter on a management group scope stays inside that hierarchy.
+data "azurerm_management_group" "scope" {
+  for_each = local.enumerate_management_group_subscriptions ? toset(local.management_group_names) : toset([])
+
+  name = each.value
+}
 
 # Retrieve the orchestrator Azure subscription details.
 data "azurerm_subscription" "orchestrator" {

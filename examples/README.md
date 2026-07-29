@@ -44,6 +44,7 @@ Additional configuration options:
 Secretless onboarding where scanning runs in Upwind's tenant — no customer-side scanner, Key Vault, managed identities, or credentials:
 
 - **[tenant-saas](tenant-saas/)** - SaaS onboarding; the module creates and consents the Snapshot/Fetcher service principals
+- **[tenant-saas-management-groups](tenant-saas-management-groups/)** - SaaS onboarding scoped to specific management groups (no tenant-root scope, no tenant-wide subscription listing)
 - **[tenant-saas-existing-sp](tenant-saas-existing-sp/)** - SaaS onboarding using pre-created service principals (runner needs no Microsoft Graph permissions)
 
 ### Advanced Examples
@@ -66,6 +67,7 @@ Production-ready configurations:
 | [tenant-keyvault-private](tenant-keyvault-private/) | Tenant | ✅ | ❌ | Private | No public vault access |
 | [tenant-advanced](tenant-advanced/) | Exclude Subs | ✅ | ✅ | Deny | Production deployment |
 | [tenant-saas](tenant-saas/) | Tenant | N/A (provider-hosted) | ❌ | N/A | Secretless SaaS onboarding |
+| [tenant-saas-management-groups](tenant-saas-management-groups/) | Mgmt Groups | N/A (provider-hosted) | ❌ | N/A | Secretless SaaS, management group scope only |
 | [tenant-saas-existing-sp](tenant-saas-existing-sp/) | Tenant | N/A (provider-hosted) | ❌ | N/A | SaaS with pre-created SPs |
 
 ## Choosing an Example
@@ -96,6 +98,9 @@ or [tenant-keyvault-private](tenant-keyvault-private/) for a fully private vault
 
 **Provider-hosted (SaaS), secretless onboarding?**
 → Use [tenant-saas](tenant-saas/), or [tenant-saas-existing-sp](tenant-saas-existing-sp/) if the service principals are pre-created
+
+**Provider-hosted (SaaS) but only allowed to onboard a management group?**
+→ Use [tenant-saas-management-groups](tenant-saas-management-groups/) — no tenant-root scope and no tenant-wide subscription enumeration
 
 ### By Security Posture
 
@@ -128,6 +133,10 @@ azure_tenant_id = "12345678-1234-1234-1234-123456789012"
 azure_management_group_ids = ["prod-mg", "dev-mg"]
 # Do NOT set azure_tenant_id when using management groups
 ```
+
+Leaving `azure_tenant_id` unset is what keeps the onboarding management group specific: role
+assignments stay on those groups, and any exclude filter is expanded against the subscriptions
+under them (nested groups included) instead of the tenant-wide subscription list.
 
 ### Subscription Filtering
 

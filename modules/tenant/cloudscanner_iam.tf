@@ -32,16 +32,18 @@ locals {
   # Priority logic:
   # 1. If include list is provided: use only those subscriptions (overrides management groups)
   # 2. If exclude list is provided: expand to subscription-level assignments, excluding specified ones
-  #    - This allows combining with management groups by filtering all tenant subscriptions
+  #    - The expansion draws on local.exclude_candidate_subscription_ids (main.tf):
+  #      the management group hierarchy when scoped to management groups, the
+  #      tenant subscription list when scoped to the tenant
   # 3. Otherwise: use management group scopes (or tenant root if azure_tenant_id is set)
   cloudscanner_scopes = length(var.cloudscanner_include_subscriptions) > 0 ? [
     for sub_id in var.cloudscanner_include_subscriptions :
     "/subscriptions/${sub_id}"
     ] : (
     length(var.cloudscanner_exclude_subscriptions) > 0 ? [
-      for sub in data.azurerm_subscriptions.all.subscriptions :
-      "/subscriptions/${sub.subscription_id}"
-      if !contains(var.cloudscanner_exclude_subscriptions, sub.subscription_id)
+      for sub_id in local.exclude_candidate_subscription_ids :
+      "/subscriptions/${sub_id}"
+      if !contains(var.cloudscanner_exclude_subscriptions, sub_id)
     ] : local.normalized_management_group_ids
   )
 }

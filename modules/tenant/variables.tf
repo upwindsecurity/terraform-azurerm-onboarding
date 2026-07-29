@@ -228,7 +228,7 @@ variable "cloudapi_include_subscriptions" {
 }
 
 variable "cloudapi_exclude_subscriptions" {
-  description = "Optional list of subscription IDs to exclude from cloudapi service principal role assignments. If provided, cloudapi roles will be assigned at the subscription level to all tenant subscriptions except these (instead of at management group level). Mutually exclusive with cloudapi_include_subscriptions. Note: When used with azure_management_group_ids, role assignments switch from management-group-level to subscription-level for all tenant subscriptions (excluding specified ones). This will enable us to exclude subscriptions from the discovery process. CloudAPI scope should be a superset of cloudscanner scope."
+  description = "Optional list of subscription IDs to exclude from cloudapi service principal role assignments. If provided, cloudapi roles will be assigned at the subscription level to every subscription in scope except these (instead of at management group level). Mutually exclusive with cloudapi_include_subscriptions. Note: When used with azure_management_group_ids (and azure_tenant_id unset), role assignments switch from management-group-level to subscription-level for the subscriptions under those management groups only, nested groups included - the tenant-wide subscription list is not used. With azure_tenant_id set, the expansion covers all tenant subscriptions. This will enable us to exclude subscriptions from the discovery process. CloudAPI scope should be a superset of cloudscanner scope."
   type        = list(string)
   default     = []
 }
@@ -240,7 +240,7 @@ variable "cloudscanner_include_subscriptions" {
 }
 
 variable "cloudscanner_exclude_subscriptions" {
-  description = "Optional list of subscription IDs to exclude from cloudscanner managed identity role assignments. If provided, cloudscanner roles will be assigned at the subscription level to all tenant subscriptions except these (instead of at management group level). Mutually exclusive with cloudscanner_include_subscriptions. Note: When used with azure_management_group_ids, role assignments switch from management-group-level to subscription-level for all tenant subscriptions (excluding specified ones). This will enable us to exclude subscriptions from the scanning process. Cloudscanner scope should be a subset of cloudapi scope."
+  description = "Optional list of subscription IDs to exclude from cloudscanner managed identity role assignments. If provided, cloudscanner roles will be assigned at the subscription level to every subscription in scope except these (instead of at management group level). Mutually exclusive with cloudscanner_include_subscriptions. Note: When used with azure_management_group_ids (and azure_tenant_id unset), role assignments switch from management-group-level to subscription-level for the subscriptions under those management groups only, nested groups included - the tenant-wide subscription list is not used. With azure_tenant_id set, the expansion covers all tenant subscriptions. This will enable us to exclude subscriptions from the scanning process. Cloudscanner scope should be a subset of cloudapi scope."
   type        = list(string)
   default     = []
 }
