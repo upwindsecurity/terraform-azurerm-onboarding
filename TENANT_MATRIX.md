@@ -11,7 +11,11 @@ Each option is demonstrated in a dedicated example.
 
 * **Management group level** - Monitor specific management groups
   * Variables: `azure_management_group_ids` included, `azure_tenant_id` excluded
-  * Example: [`examples/tenant-management-groups/`](examples/tenant-management-groups/)
+  * Scope stays inside the named hierarchy: role assignments land on those management groups, and
+    exclude filters are expanded against the subscriptions under them (nested groups included) -
+    the tenant-wide subscription list is never read (UP-4303)
+  * Examples: [`examples/tenant-management-groups/`](examples/tenant-management-groups/) (outpost),
+    [`examples/tenant-saas-management-groups/`](examples/tenant-saas-management-groups/) (SaaS)
 
 * **Include subscriptions** - Monitor only specific subscriptions
   * Variables: `cloudapi_include_subscriptions`, `cloudscanner_include_subscriptions`
@@ -19,6 +23,8 @@ Each option is demonstrated in a dedicated example.
 
 * **Exclude subscriptions** - Monitor all except specific subscriptions
   * Variables: `cloudapi_exclude_subscriptions`, `cloudscanner_exclude_subscriptions`
+  * The set being excluded from is the current scope: all tenant subscriptions with `azure_tenant_id`
+    set, or just the subscriptions under `azure_management_group_ids` when it is not
   * Example: [`examples/tenant-exclude-subscriptions/`](examples/tenant-exclude-subscriptions/)
 
 ## CloudScanner Options
@@ -76,6 +82,7 @@ Each option is demonstrated in a dedicated example.
 | [tenant-wif](examples/tenant-wif/) | Tenant | ✅ | ❌ | Allow |
 | [tenant-basic](examples/tenant-basic/) | Tenant | ✅ | ❌ | Allow |
 | [tenant-management-groups](examples/tenant-management-groups/) | Mgmt Groups | ✅ | ❌ | Allow |
+| [tenant-saas-management-groups](examples/tenant-saas-management-groups/) | Mgmt Groups | N/A (SaaS) | ❌ | N/A |
 | [tenant-include-subscriptions](examples/tenant-include-subscriptions/) | Include Subs | ✅ | ❌ | Allow |
 | [tenant-exclude-subscriptions](examples/tenant-exclude-subscriptions/) | Exclude Subs | ✅ | ❌ | Allow |
 | [tenant-no-cloudscanner](examples/tenant-no-cloudscanner/) | Tenant | ❌ | ❌ | N/A |

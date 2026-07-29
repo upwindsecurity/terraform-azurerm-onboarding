@@ -32,6 +32,10 @@ Use this approach when you want to:
 - **CloudScanner**: Scans all subscriptions except those excluded
 - Mutually exclusive with include subscriptions
 - Can be combined with `azure_tenant_id` or `azure_management_group_ids`
+- The set being excluded from follows the scope: with `azure_tenant_id` (this example) it is every
+  subscription in the tenant; with `azure_management_group_ids` and no `azure_tenant_id` it is only
+  the subscriptions under those management groups, nested groups included — see
+  [tenant-management-groups](../tenant-management-groups/)
 
 ## Usage
 
