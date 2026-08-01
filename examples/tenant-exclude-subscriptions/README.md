@@ -41,6 +41,11 @@ Use this approach when you want to:
   subscription in `cloudapi_exclude_subscriptions` genuinely excludes it. To keep it covered, leave
   it out of the exclude list
 
+- If the filter resolves to **zero** subscriptions, the plan fails with an explicit error rather
+  than applying an onboarding with no role assignments at all. Under `azure_management_group_ids`
+  the candidates are only the subscriptions beneath those groups, so an exclude list copied from a
+  tenant-scoped config can empty the scope unexpectedly
+
 > **Note**
 > Before the UP-4303 follow-up, an exclude filter still appended the orchestrator subscription to
 > the CloudAPI scope. That re-added it even when it had been explicitly excluded, and under a

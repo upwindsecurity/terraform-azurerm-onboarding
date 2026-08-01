@@ -47,6 +47,18 @@ locals {
   enumerate_management_group_subscriptions = local.using_exclude_subscriptions && local.using_sub_management_group
   enumerate_tenant_subscriptions           = local.using_exclude_subscriptions && !local.using_sub_management_group
 
+  # Whether a subscription filter is narrowing each scope. When one is, the
+  # resolved list is the entire scope, so an over-broad filter can empty it -
+  # see the preconditions on data.azurerm_subscription.orchestrator.
+  using_cloudapi_subscription_filter = (
+    length(var.cloudapi_include_subscriptions) > 0 ||
+    length(var.cloudapi_exclude_subscriptions) > 0
+  )
+  using_cloudscanner_subscription_filter = (
+    length(var.cloudscanner_include_subscriptions) > 0 ||
+    length(var.cloudscanner_exclude_subscriptions) > 0
+  )
+
   # Subscription universe the exclude filters are applied to.
   #
   # Management group scope (azure_management_group_ids set, azure_tenant_id empty):
@@ -226,8 +238,31 @@ data "azurerm_management_group" "scope" {
 }
 
 # Retrieve the orchestrator Azure subscription details.
+#
+# This unconditional read also hosts the empty-scope guards. Every role-assignment
+# map in the module is guarded by a length() > 0 test, so a subscription filter
+# that removes every candidate would otherwise produce a successful apply that
+# creates no role assignments at all and still submits credentials to Upwind - a
+# silently dead onboarding. The ARM path fails loudly in the same situation
+# ("All subscriptions in <scope> were excluded by --exclude-subscriptions. At
+# least one subscription must remain to assign RBAC."), so match it.
+#
+# The checks live here rather than on a dedicated terraform_data resource to keep
+# them out of state: this data source is always read, is not part of the scope
+# calculation (no dependency cycle), and adds no plan noise for existing users.
 data "azurerm_subscription" "orchestrator" {
   subscription_id = var.azure_orchestrator_subscription_id
+
+  lifecycle {
+    precondition {
+      condition     = !local.using_cloudapi_subscription_filter || length(local.effective_scopes) > 0
+      error_message = "cloudapi_include_subscriptions / cloudapi_exclude_subscriptions resolved to zero subscriptions, so no CloudAPI (inventory) roles would be assigned anywhere. Check that the excluded IDs do not cover every subscription in scope - under azure_management_group_ids the candidates are only the subscriptions beneath those groups, not the whole tenant - and that any included IDs are correct."
+    }
+    precondition {
+      condition     = !local.using_cloudscanner_subscription_filter || !(var.saas_enabled || local.cloudscanner_enabled) || length(local.cloudscanner_scopes) > 0
+      error_message = "cloudscanner_include_subscriptions / cloudscanner_exclude_subscriptions resolved to zero subscriptions, so no CloudScanner (scanning) roles would be assigned anywhere. Check that the excluded IDs do not cover every subscription in scope - under azure_management_group_ids the candidates are only the subscriptions beneath those groups, not the whole tenant - and that any included IDs are correct."
+    }
+  }
 }
 
 # Retrieve application IDs for APIs published by Microsoft.
