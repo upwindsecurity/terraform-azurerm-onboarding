@@ -138,6 +138,10 @@ Leaving `azure_tenant_id` unset is what keeps the onboarding management group sp
 assignments stay on those groups, and any exclude filter is expanded against the subscriptions
 under them (nested groups included) instead of the tenant-wide subscription list.
 
+With no subscription filter, the outpost path additionally assigns roles on
+`azure_orchestrator_subscription_id` — it may sit outside the hierarchy and is where the
+CloudScanner resources are deployed. The SaaS path does not.
+
 ### Subscription Filtering
 
 ```hcl
@@ -149,6 +153,10 @@ cloudscanner_include_subscriptions = ["sub-id-1"]
 cloudapi_exclude_subscriptions = ["sandbox-sub-id"]
 cloudscanner_exclude_subscriptions = ["sandbox-sub-id"]
 ```
+
+Under either filter the resolved subscription list is the whole role-assignment scope — nothing is
+appended to it. In particular `azure_orchestrator_subscription_id` is only covered if it is in the
+include list, or in scope and not excluded.
 
 ### CloudScanner Control
 

@@ -222,13 +222,13 @@ variable "upwind_feature_dspm_enabled" {
 }
 
 variable "cloudapi_include_subscriptions" {
-  description = "Optional list of subscription IDs to include for cloudapi service principal role assignments. If provided, cloudapi roles will only be assigned to these subscriptions. Mutually exclusive with cloudapi_exclude_subscriptions. Can be combined with azure_management_group_ids or azure_tenant_id. This will enable us to discover these subscriptions and the resources in them. CloudAPI scope should be a superset of cloudscanner scope."
+  description = "Optional list of subscription IDs to include for cloudapi service principal role assignments. If provided, cloudapi roles will only be assigned to these subscriptions - the list is the whole scope, nothing is appended to it, so include azure_orchestrator_subscription_id explicitly if its resources should be discovered. Mutually exclusive with cloudapi_exclude_subscriptions. Can be combined with azure_management_group_ids or azure_tenant_id. This will enable us to discover these subscriptions and the resources in them. CloudAPI scope should be a superset of cloudscanner scope."
   type        = list(string)
   default     = []
 }
 
 variable "cloudapi_exclude_subscriptions" {
-  description = "Optional list of subscription IDs to exclude from cloudapi service principal role assignments. If provided, cloudapi roles will be assigned at the subscription level to every subscription in scope except these (instead of at management group level). Mutually exclusive with cloudapi_include_subscriptions. Note: When used with azure_management_group_ids (and azure_tenant_id unset), role assignments switch from management-group-level to subscription-level for the subscriptions under those management groups only, nested groups included - the tenant-wide subscription list is not used. With azure_tenant_id set, the expansion covers all tenant subscriptions. This will enable us to exclude subscriptions from the discovery process. CloudAPI scope should be a superset of cloudscanner scope."
+  description = "Optional list of subscription IDs to exclude from cloudapi service principal role assignments. If provided, cloudapi roles will be assigned at the subscription level to every subscription in scope except these (instead of at management group level). Mutually exclusive with cloudapi_include_subscriptions. Note: When used with azure_management_group_ids (and azure_tenant_id unset), role assignments switch from management-group-level to subscription-level for the subscriptions under those management groups only, nested groups included - the tenant-wide subscription list is not used. With azure_tenant_id set, the expansion covers all tenant subscriptions. The resolved list is the whole scope - the orchestrator subscription is not appended on top of it, so excluding azure_orchestrator_subscription_id genuinely excludes it. This will enable us to exclude subscriptions from the discovery process. CloudAPI scope should be a superset of cloudscanner scope."
   type        = list(string)
   default     = []
 }

@@ -14,17 +14,23 @@ Each option is demonstrated in a dedicated example.
   * Scope stays inside the named hierarchy: role assignments land on those management groups, and
     exclude filters are expanded against the subscriptions under them (nested groups included) -
     the tenant-wide subscription list is never read (UP-4303)
+  * With no subscription filter, the outpost path also assigns roles on the orchestrator
+    subscription - it may sit outside the hierarchy and holds the CloudScanner resources. The SaaS
+    path does not. Under a subscription filter neither path adds it
   * Examples: [`examples/tenant-management-groups/`](examples/tenant-management-groups/) (outpost),
     [`examples/tenant-saas-management-groups/`](examples/tenant-saas-management-groups/) (SaaS)
 
 * **Include subscriptions** - Monitor only specific subscriptions
   * Variables: `cloudapi_include_subscriptions`, `cloudscanner_include_subscriptions`
+  * The listed subscriptions are the whole scope - nothing is appended to them
   * Example: [`examples/tenant-include-subscriptions/`](examples/tenant-include-subscriptions/)
 
 * **Exclude subscriptions** - Monitor all except specific subscriptions
   * Variables: `cloudapi_exclude_subscriptions`, `cloudscanner_exclude_subscriptions`
   * The set being excluded from is the current scope: all tenant subscriptions with `azure_tenant_id`
     set, or just the subscriptions under `azure_management_group_ids` when it is not
+  * The resolved list is the whole scope, so an excluded subscription stays excluded - including the
+    orchestrator subscription, which is no longer re-added on top of the filter (UP-4303 follow-up)
   * Example: [`examples/tenant-exclude-subscriptions/`](examples/tenant-exclude-subscriptions/)
 
 ## CloudScanner Options

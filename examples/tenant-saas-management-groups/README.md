@@ -50,8 +50,8 @@ in the customer tenant and assigns them scoped roles:
   (`azure_custom_role_permissions`)
 
 In SaaS mode both service principals are granted roles at the management groups and nowhere else —
-unlike the outpost path, the orchestrator subscription is not added as an extra role-assignment
-scope. The central snapshots resource group is created there by the Terraform runner's own
+unlike the outpost path with no subscription filter, the orchestrator subscription is not added as
+an extra role-assignment scope. The central snapshots resource group is created there by the Terraform runner's own
 credentials, and the Snapshot SP's write/delete roles are scoped to that resource group. So if the
 orchestrator subscription sits outside the management groups, it is not inventoried or scanned —
 add it to `azure_management_group_ids`' hierarchy, or name it in the `cloudapi_*` filters, if you
