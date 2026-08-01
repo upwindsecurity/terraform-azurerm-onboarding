@@ -10,7 +10,8 @@ Each option is demonstrated in a dedicated example.
   * Example: [`examples/tenant-basic/`](examples/tenant-basic/)
 
 * **Management group level** - Monitor specific management groups
-  * Variables: `azure_management_group_ids` included, `azure_tenant_id` excluded
+  * Variables: `azure_management_group_ids` included, `azure_tenant_id` excluded (setting both is
+    rejected at plan time - `azure_tenant_id` wins and would silently scope to the tenant root)
   * Scope stays inside the named hierarchy: role assignments land on those management groups, and
     exclude filters are expanded against the subscriptions under them (nested groups included) -
     the tenant-wide subscription list is never read (UP-4303)

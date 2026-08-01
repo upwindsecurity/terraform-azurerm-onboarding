@@ -74,19 +74,29 @@ variable "upwind_region" {
 # region azure
 
 variable "azure_tenant_id" {
-  description = "The Azure Tenant that will be onboarded to the Upwind organization."
+  description = "The Azure Tenant that will be onboarded to the Upwind organization. Setting this scopes role assignments to the tenant-root management group, covering every subscription in the tenant. Mutually exclusive with azure_management_group_ids - leave this empty to scope the onboarding to specific management groups. Note it is still needed on the azuread provider; only the module argument selects the scope."
   type        = string
   default     = ""
 }
 
 variable "azure_management_group_ids" {
-  description = "List of management group names (not full resource IDs) to grant read access to. For example, use 'upwindsecurity-sandbox' instead of '/providers/Microsoft.Management/managementGroups/upwindsecurity-sandbox'. Can be combined with subscription include/exclude filters to further refine the scope."
+  description = "List of management group names (not full resource IDs) to grant read access to. For example, use 'upwindsecurity-sandbox' instead of '/providers/Microsoft.Management/managementGroups/upwindsecurity-sandbox'. Mutually exclusive with azure_tenant_id, which takes precedence over this list. Can be combined with subscription include/exclude filters to further refine the scope."
   type        = list(string)
   default     = []
 
   validation {
     condition     = var.azure_tenant_id != "" || length(var.azure_management_group_ids) > 0
     error_message = "Either azure_tenant_id or at least one azure_management_group_ids must be provided to determine the scope of role assignments."
+  }
+
+  # azure_tenant_id wins outright in main.tf (management_group_ids), so setting
+  # both silently discarded the management group list and scoped the whole
+  # onboarding to the tenant-root management group - every subscription in the
+  # tenant. It looked identical to a broken scope filter and was only visible by
+  # inspecting the role assignments after an apply. Fail at plan time instead.
+  validation {
+    condition     = var.azure_tenant_id == "" || length(var.azure_management_group_ids) == 0
+    error_message = "azure_tenant_id and azure_management_group_ids are mutually exclusive. azure_tenant_id takes precedence, so setting both scopes the onboarding to the tenant-root management group and silently ignores azure_management_group_ids. For management group scope, remove azure_tenant_id from the module arguments (it is still required on the azuread provider) - see examples/tenant-management-groups or examples/tenant-saas-management-groups. For tenant-wide scope, remove azure_management_group_ids."
   }
 }
 

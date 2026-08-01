@@ -134,6 +134,11 @@ azure_management_group_ids = ["prod-mg", "dev-mg"]
 # Do NOT set azure_tenant_id when using management groups
 ```
 
+Setting both is rejected at plan time. `azure_tenant_id` takes precedence in the module, so a
+config that passes both silently scopes to the tenant root and ignores the management group list —
+the plan now fails with an explicit error instead. `azure_tenant_id` is still required on the
+`azuread` provider; only the module argument selects the scope.
+
 Leaving `azure_tenant_id` unset is what keeps the onboarding management group specific: role
 assignments stay on those groups, and any exclude filter is expanded against the subscriptions
 under them (nested groups included) instead of the tenant-wide subscription list.
