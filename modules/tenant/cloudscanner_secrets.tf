@@ -33,10 +33,16 @@ resource "azurerm_key_vault" "orgwide_key_vault" {
     }
   }
 
+  # UpwindKeyVaultRole names this vault's purpose. UpwindComponent / UpwindOrgId are what
+  # onboarding-service searches on, and every Upwind resource in this resource group carries them,
+  # so a second Key Vault added here for an unrelated reason would be indistinguishable by location
+  # alone. This tag is what tells them apart. onboarding-service only reads it to break a tie, so
+  # vaults deployed before it existed keep resolving without a backfill.
   tags = merge(var.tags, {
-    "UpwindComponent"  = "CloudScanner"
-    "UpwindOrgId"      = var.upwind_organization_id
-    "DenyPublicAccess" = var.key_vault_deny_traffic || var.key_vault_private_network ? "true" : "false"
+    "UpwindComponent"    = "CloudScanner"
+    "UpwindOrgId"        = var.upwind_organization_id
+    "DenyPublicAccess"   = var.key_vault_deny_traffic || var.key_vault_private_network ? "true" : "false"
+    "UpwindKeyVaultRole" = "OrgWide"
   })
 }
 
