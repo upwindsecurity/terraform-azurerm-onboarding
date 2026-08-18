@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.6.3](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.6.2...v1.6.3) (2026-01-28)
+
+### Bug Fixes
+
+* **AG-0:** try nonsensitive for cloudscanner_enabled, otherwise use nonsensitive ([#48](https://github.com/upwindsecurity/terraform-azurerm-onboarding/issues/48)) ([6dd07a8](https://github.com/upwindsecurity/terraform-azurerm-onboarding/commit/6dd07a82fa8bbb44678df4e23d6ed43b3e1e2716))
+
 ## [1.3.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.2.0...v1.3.0) (2025-08-22)
 
 ### Features
