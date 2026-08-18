@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.16.1](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.16.0...v1.16.1) (2026-07-24)
+
+### Bug Fixes
+
+* **UP-3947:** engage WIF only when a fetcher identity is available ([#96](https://github.com/upwindsecurity/terraform-azurerm-onboarding/issues/96)) ([72330dd](https://github.com/upwindsecurity/terraform-azurerm-onboarding/commit/72330dd0c318e96fecfc91de5dbb004f50ace21a))
+
 ## [1.3.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.2.0...v1.3.0) (2025-08-22)
 
 ### Features
