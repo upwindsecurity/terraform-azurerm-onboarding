@@ -32,6 +32,10 @@ Use this approach when you want to:
 - **CloudScanner**: Actively scans resources in specified subscriptions
 - CloudScanner subscriptions should be a subset of CloudAPI subscriptions
 - Mutually exclusive with exclude subscriptions
+- The listed subscriptions **are** the scope. The orchestrator subscription
+  (`azure_orchestrator_subscription_id`) is not appended on top of the list — add it to
+  `cloudapi_include_subscriptions` if you want its resources discovered. The CloudScanner
+  infrastructure roles it needs (deployer, scaler, Key Vault) are granted there regardless
 
 ## Usage
 

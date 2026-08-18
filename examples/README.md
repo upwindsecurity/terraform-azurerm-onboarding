@@ -134,9 +134,18 @@ azure_management_group_ids = ["prod-mg", "dev-mg"]
 # Do NOT set azure_tenant_id when using management groups
 ```
 
+Setting both is rejected at plan time. `azure_tenant_id` takes precedence in the module, so a
+config that passes both silently scopes to the tenant root and ignores the management group list —
+the plan now fails with an explicit error instead. `azure_tenant_id` is still required on the
+`azuread` provider; only the module argument selects the scope.
+
 Leaving `azure_tenant_id` unset is what keeps the onboarding management group specific: role
 assignments stay on those groups, and any exclude filter is expanded against the subscriptions
 under them (nested groups included) instead of the tenant-wide subscription list.
+
+With no subscription filter, the outpost path additionally assigns roles on
+`azure_orchestrator_subscription_id` — it may sit outside the hierarchy and is where the
+CloudScanner resources are deployed. The SaaS path does not.
 
 ### Subscription Filtering
 
@@ -149,6 +158,10 @@ cloudscanner_include_subscriptions = ["sub-id-1"]
 cloudapi_exclude_subscriptions = ["sandbox-sub-id"]
 cloudscanner_exclude_subscriptions = ["sandbox-sub-id"]
 ```
+
+Under either filter the resolved subscription list is the whole role-assignment scope — nothing is
+appended to it. In particular `azure_orchestrator_subscription_id` is only covered if it is in the
+include list, or in scope and not excluded.
 
 ### CloudScanner Control
 

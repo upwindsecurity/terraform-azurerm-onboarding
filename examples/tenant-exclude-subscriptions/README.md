@@ -36,6 +36,21 @@ Use this approach when you want to:
   subscription in the tenant; with `azure_management_group_ids` and no `azure_tenant_id` it is only
   the subscriptions under those management groups, nested groups included — see
   [tenant-management-groups](../tenant-management-groups/)
+- The resulting list **is** the scope. The orchestrator subscription
+  (`azure_orchestrator_subscription_id`) is not appended on top of it, so listing the orchestrator
+  subscription in `cloudapi_exclude_subscriptions` genuinely excludes it. To keep it covered, leave
+  it out of the exclude list
+
+- If the filter resolves to **zero** subscriptions, the plan fails with an explicit error rather
+  than applying an onboarding with no role assignments at all. Under `azure_management_group_ids`
+  the candidates are only the subscriptions beneath those groups, so an exclude list copied from a
+  tenant-scoped config can empty the scope unexpectedly
+
+> **Note**
+> Before the UP-4303 follow-up, an exclude filter still appended the orchestrator subscription to
+> the CloudAPI scope. That re-added it even when it had been explicitly excluded, and under a
+> management group scope it placed role assignments on a subscription outside the hierarchy.
+> Upgrading removes those assignments on the next apply.
 
 ## Usage
 

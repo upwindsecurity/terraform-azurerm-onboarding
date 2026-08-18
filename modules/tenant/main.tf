@@ -47,6 +47,18 @@ locals {
   enumerate_management_group_subscriptions = local.using_exclude_subscriptions && local.using_sub_management_group
   enumerate_tenant_subscriptions           = local.using_exclude_subscriptions && !local.using_sub_management_group
 
+  # Whether a subscription filter is narrowing each scope. When one is, the
+  # resolved list is the entire scope, so an over-broad filter can empty it -
+  # see the preconditions on data.azurerm_subscription.orchestrator.
+  using_cloudapi_subscription_filter = (
+    length(var.cloudapi_include_subscriptions) > 0 ||
+    length(var.cloudapi_exclude_subscriptions) > 0
+  )
+  using_cloudscanner_subscription_filter = (
+    length(var.cloudscanner_include_subscriptions) > 0 ||
+    length(var.cloudscanner_exclude_subscriptions) > 0
+  )
+
   # Subscription universe the exclude filters are applied to.
   #
   # Management group scope (azure_management_group_ids set, azure_tenant_id empty):
@@ -89,25 +101,33 @@ locals {
   #   - Use the tenant root scope only
   #   - Don't add orchestrator subscription separately (already covered by tenant root)
   #
-  # Scenario 2: Sub-management group (azure_management_group_ids is set, azure_tenant_id is empty)
+  # Scenario 2: Sub-management group (azure_management_group_ids is set,
+  #             azure_tenant_id is empty, no cloudapi subscription filter)
   #   - Use the sub-management group scope
-  #   - Add orchestrator subscription explicitly (may not be in the sub-management group hierarchy)
+  #   - Add orchestrator subscription explicitly: the outpost's own resources live
+  #     there and it may sit outside the hierarchy. This mirrors the ARM path,
+  #     which deploys modules/sub-roles.bicep to the orchestrator subscription
+  #     alongside the management group stacks.
   #
   # Scenario 3: Explicit include/exclude subscription lists
-  #   - Use the computed subscription list
-  #   - Add orchestrator subscription only if not already in the list
+  #   - Use the computed subscription list verbatim - the filter IS the scope.
+  #   - Do NOT add the orchestrator subscription. Adding it silently overrode an
+  #     explicit cloudapi_exclude_subscriptions entry (the subscription is absent
+  #     from base_effective_scopes precisely because it was excluded, so the
+  #     "not already present" test always re-added it), and under a management
+  #     group scope it put role assignments on a subscription outside the
+  #     hierarchy - the leak UP-4303 set out to close. The ARM path behaves the
+  #     same way: with --include-subscriptions / --exclude-subscriptions,
+  #     onboard.sh calls deploy_subscription_roles over the resolved list only
+  #     and never touches the orchestrator subscription.
+  #   - To cover the orchestrator subscription under a filter, leave it out of
+  #     cloudapi_exclude_subscriptions (it survives the expansion when it is in
+  #     the hierarchy) or name it in cloudapi_include_subscriptions.
   effective_scopes = (
+    local.using_sub_management_group &&
     length(var.cloudapi_include_subscriptions) == 0 &&
-    length(var.cloudapi_exclude_subscriptions) == 0 &&
-    local.using_sub_management_group
-    ) ? concat(local.base_effective_scopes, [local.orchestrator_subscription_scope]) : (
-    # For include/exclude lists, only add orchestrator if not already present
-    length(var.cloudapi_include_subscriptions) > 0 || length(var.cloudapi_exclude_subscriptions) > 0 ?
-    (!contains(local.base_effective_scopes, local.orchestrator_subscription_scope) ?
-      concat(local.base_effective_scopes, [local.orchestrator_subscription_scope]) :
-      local.base_effective_scopes
-    ) : local.base_effective_scopes
-  )
+    length(var.cloudapi_exclude_subscriptions) == 0
+  ) ? concat(local.base_effective_scopes, [local.orchestrator_subscription_scope]) : local.base_effective_scopes
 
   # Construct a map of role assignments using combinations of scopes and built-in roles.
   # This map is only created if there are valid scopes and roles to process.
@@ -218,8 +238,31 @@ data "azurerm_management_group" "scope" {
 }
 
 # Retrieve the orchestrator Azure subscription details.
+#
+# This unconditional read also hosts the empty-scope guards. Every role-assignment
+# map in the module is guarded by a length() > 0 test, so a subscription filter
+# that removes every candidate would otherwise produce a successful apply that
+# creates no role assignments at all and still submits credentials to Upwind - a
+# silently dead onboarding. The ARM path fails loudly in the same situation
+# ("All subscriptions in <scope> were excluded by --exclude-subscriptions. At
+# least one subscription must remain to assign RBAC."), so match it.
+#
+# The checks live here rather than on a dedicated terraform_data resource to keep
+# them out of state: this data source is always read, is not part of the scope
+# calculation (no dependency cycle), and adds no plan noise for existing users.
 data "azurerm_subscription" "orchestrator" {
   subscription_id = var.azure_orchestrator_subscription_id
+
+  lifecycle {
+    precondition {
+      condition     = !local.using_cloudapi_subscription_filter || length(local.effective_scopes) > 0
+      error_message = "cloudapi_include_subscriptions / cloudapi_exclude_subscriptions resolved to zero subscriptions, so no CloudAPI (inventory) roles would be assigned anywhere. Check that the excluded IDs do not cover every subscription in scope - under azure_management_group_ids the candidates are only the subscriptions beneath those groups, not the whole tenant - and that any included IDs are correct."
+    }
+    precondition {
+      condition     = !local.using_cloudscanner_subscription_filter || !(var.saas_enabled || local.cloudscanner_enabled) || length(local.cloudscanner_scopes) > 0
+      error_message = "cloudscanner_include_subscriptions / cloudscanner_exclude_subscriptions resolved to zero subscriptions, so no CloudScanner (scanning) roles would be assigned anywhere. Check that the excluded IDs do not cover every subscription in scope - under azure_management_group_ids the candidates are only the subscriptions beneath those groups, not the whole tenant - and that any included IDs are correct."
+    }
+  }
 }
 
 # Retrieve application IDs for APIs published by Microsoft.

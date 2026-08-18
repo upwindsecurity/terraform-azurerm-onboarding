@@ -36,6 +36,12 @@ locals {
   #      the management group hierarchy when scoped to management groups, the
   #      tenant subscription list when scoped to the tenant
   # 3. Otherwise: use management group scopes (or tenant root if azure_tenant_id is set)
+  #
+  # The orchestrator subscription is never appended here. Under a filter the
+  # resolved list is the scope, matching local.effective_scopes (main.tf) and the
+  # ARM path's deploy_subscription_roles. The CloudScanner infrastructure roles
+  # the orchestrator subscription does need (deployer/scaler) are granted
+  # separately at local.orchestrator_subscription_scope below.
   cloudscanner_scopes = length(var.cloudscanner_include_subscriptions) > 0 ? [
     for sub_id in var.cloudscanner_include_subscriptions :
     "/subscriptions/${sub_id}"

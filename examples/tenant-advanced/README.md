@@ -61,6 +61,11 @@ Sandbox and test subscriptions are excluded from both CloudAPI and CloudScanner 
 - Lower costs by not scanning non-production resources
 - Maintain separation between environments
 
+The resulting subscription list is the whole role-assignment scope. The orchestrator subscription
+(`azure_orchestrator_subscription_id`) is not appended on top of it — this example keeps it covered
+by leaving it out of the exclude lists. Its CloudScanner infrastructure roles (deployer, scaler,
+Key Vault) are granted there regardless of the filters.
+
 ### Custom Tags
 
 Tags are applied for:
