@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.17.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.16.1...v1.17.0) (2026-07-24)
+
+### Features
+
+* **UP-2387:** add subscription scope option to SaaS onboarding ([#93](https://github.com/upwindsecurity/terraform-azurerm-onboarding/issues/93)) ([efa1ee8](https://github.com/upwindsecurity/terraform-azurerm-onboarding/commit/efa1ee8d34a3b8489726f27613747604368ac0e0))
+
 ## [1.3.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.2.0...v1.3.0) (2025-08-22)
 
 ### Features
