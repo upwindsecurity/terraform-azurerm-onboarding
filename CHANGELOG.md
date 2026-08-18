@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.13.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.12.0...v1.13.0) (2026-07-10)
+
+### Features
+
+* **UP-3155:** support private networking key vault for tenant onboarding ([#81](https://github.com/upwindsecurity/terraform-azurerm-onboarding/issues/81)) ([f03ffbe](https://github.com/upwindsecurity/terraform-azurerm-onboarding/commit/f03ffbe497ffd38d37ac352ee911d117366f4d3a))
+
 ## [1.3.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.2.0...v1.3.0) (2025-08-22)
 
 ### Features
