@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.6.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.5.6...v1.6.0) (2025-11-05)
+
+### Features
+
+* **AG-3698:** changing minimum required version of azurerm to 4.42 ([#35](https://github.com/upwindsecurity/terraform-azurerm-onboarding/issues/35)) ([41306a1](https://github.com/upwindsecurity/terraform-azurerm-onboarding/commit/41306a1f9d0dab4ad8f331fb4ba869d30b0c5dfa))
+
 ## [1.3.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.2.0...v1.3.0) (2025-08-22)
 
 ### Features
