@@ -16,8 +16,23 @@ locals {
   azure_orchestrator_subscription_id = "87654321-4321-4321-4321-210987654321"
 }
 
+# Microsoft.Compute must be registered in the orchestrator subscription. The Snapshot SP
+# writes Microsoft.Compute/snapshots into the central snapshots RG, and its role set
+# (Reader, Disk Snapshot Contributor, Data Operator for Managed Disks, CloudScannerTargetRole)
+# carries no */register/action - so it cannot register the provider itself, and the first
+# snapshot fails with MissingSubscriptionRegistration on an orchestrator subscription that has
+# never held a VM. The outpost path never needed this: its deployer role holds
+# Microsoft.Compute/* and provisions through an ARM deployment, either of which registers the
+# provider on first deploy.
+#
+# resource_provider_registrations is pinned so the registered set is the same on every azurerm
+# version - it defaults to "legacy" (~60 providers, each needing register/action) on 4.x and to
+# "none" on 5.x. Nothing else is needed here: this path only creates a resource group and role
+# definitions, under Microsoft.Resources / Microsoft.Authorization, which are always registered.
 provider "azurerm" {
-  subscription_id = local.azure_orchestrator_subscription_id
+  subscription_id                 = local.azure_orchestrator_subscription_id
+  resource_provider_registrations = "none"
+  resource_providers_to_register  = ["Microsoft.Compute"]
   features {}
 }
 

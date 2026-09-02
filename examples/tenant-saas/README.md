@@ -62,6 +62,21 @@ write/delete is confined to it rather than granted tenant-wide.
 No self-hosted resources (app registration, Key Vault, managed identities, custom roles) and no
 scanner credentials are created.
 
+## Resource provider registration
+
+The `azurerm` provider block registers `Microsoft.Compute` in the orchestrator subscription. The
+Snapshot SP creates `Microsoft.Compute/snapshots` in the central snapshots RG, and none of the roles
+it is granted carry `*/register/action` - so it cannot register the provider itself, and on an
+orchestrator subscription that has never held a VM the first snapshot fails with
+`MissingSubscriptionRegistration`. Registration is idempotent: on a subscription where Compute is
+already registered this is a no-op.
+
+The principal running `terraform apply` therefore needs `Microsoft.Compute/register/action` on the
+orchestrator subscription. Creating the central snapshots resource group already requires
+subscription-level write there, so Contributor covers both - only a narrowly-scoped custom role
+needs it added. To keep registration out of band instead, pre-register the provider and remove
+`resource_providers_to_register` from the provider block.
+
 ## Usage
 
 1. Update the local values with your actual Azure tenant and subscription IDs
