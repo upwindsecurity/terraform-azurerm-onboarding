@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.18.2](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.18.1...v1.18.2) (2026-09-03)
+
+### Bug Fixes
+
+* **UP-6510:** register Microsoft.Compute in the SaaS orchestrator subscription ([#105](https://github.com/upwindsecurity/terraform-azurerm-onboarding/issues/105)) ([7596920](https://github.com/upwindsecurity/terraform-azurerm-onboarding/commit/7596920acfbce7aeebe56d29735db2b103211383))
+
 ## [1.3.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.2.0...v1.3.0) (2025-08-22)
 
 ### Features
