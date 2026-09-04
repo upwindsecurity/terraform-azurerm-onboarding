@@ -277,31 +277,73 @@ When creating a pull request, please include:
 
 ## Release Process
 
-This project uses automated releases with semantic versioning, powered by [semantic-release](https://semantic-release.gitbook.io/semantic-release/):
+Versioning is automated with [semantic-release](https://semantic-release.gitbook.io/semantic-release/), but releases
+ship through **two channels**. Merging to `main` publishes to the dev channel; reaching consumers requires an explicit
+promotion to the prod channel.
+
+### Release channels
+
+Each channel is a moving git tag that consumers pin instead of a fixed version:
+
+| Channel | Tag | Moved by | GitHub Release |
+|---------|-----|----------|----------------|
+| dev | `dev-latest` | push to `main`, or `deploy=dev` dispatch | prerelease, not latest |
+| prod | `prod-latest` | `deploy=prod` dispatch from a `vX.Y.Z` tag | marked latest |
+
+```hcl
+module "tenant" {
+  source = "git::https://github.com/upwindsecurity/terraform-azurerm-onboarding.git//modules/tenant?ref=prod-latest"
+}
+```
+
+Immutable `vX.Y.Z` tags are still created by semantic-release and are still the recommended pin for anything that needs
+a fixed version. `dev-latest` and `prod-latest` are force-updated pointers layered on top; they carry no GitHub Release
+of their own.
+
+### Publishing to dev
 
 1. **Conventional Commits**: Ensure all commits follow the [Conventional Commits](https://www.conventionalcommits.org/) format.
 2. **Pull Request to `main`**: Open a pull request with your changes targeting the `main` branch.
-3. **Merge the Pull Request**: Once your pull request is approved and merged, the release workflow will automatically run.
-4. **Automated Release**: If your commits warrant a new release (according to semantic versioning rules), a new release
-   will be created, a tag will be pushed, and release notes will be generated.
-5. **Release Branch and Pull Request**: After a successful release, the workflow will automatically create a release
-   branch (e.g., `release-x.y.z`) and open a pull request with the release changes (such as updated changelog and
-   version bump). Review and merge this pull request to keep your main branch up to date with release artifacts.
+3. **Merge the Pull Request**: Once approved and merged, the release workflow runs automatically.
+4. **Automated Release**: If your commits warrant a new version, semantic-release calculates it, pushes the `vX.Y.Z`
+   tag, and generates release notes. The workflow packages each module and publishes the GitHub Release as a
+   **prerelease**, then moves `dev-latest` onto that commit. Nothing is marked latest, so consumers are unaffected.
+5. **Release Branch and Pull Request**: The workflow then creates a release branch (e.g. `release-x.y.z`) and opens a
+   pull request with the changelog update. Review and merge it to keep `main` current.
+
+Commit types that carry no version bump (`ci:`, `test:`, `build:`) publish nothing and leave `dev-latest` where it is.
+
+### Promoting to prod
+
+Validate the change against a dev tenant using `?ref=dev-latest` first. Then promote:
+
+```bash
+gh workflow run release.yml --ref v1.19.0 -f deploy=prod
+```
+
+Or in the GitHub UI: **Actions → Release → Run workflow**, select the `vX.Y.Z` **tag** in *Use workflow from*, set
+**deploy** to `prod`, and run.
+
+The promotion run flips that existing release from prerelease to latest and moves `prod-latest` onto the tagged commit.
 
 **Note:**
 
-- Releases are only triggered when a pull request is merged to `main`.
-- No release will be published for pull requests that are closed without merging.
-- After a release, a new release branch and pull request will be created automatically for release-related
-  changes.
+- Prod runs **must** start from a `vX.Y.Z` tag. Dispatching from a branch fails immediately, because `prod-latest` has
+  to point at an immutable, already-released commit.
+- To roll back, promote an earlier tag — dispatching `deploy=prod` from it moves `prod-latest` back, with no revert
+  commit needed. This only works for tags cut after the two-channel release landed: `workflow_dispatch` runs the
+  workflow file from the selected ref, and older tags contain a version that has no `deploy` input.
+- A `deploy=dev` dispatch may run from any branch. It builds a `<version>-dev.<sha>` prerelease from unmerged code and
+  moves `dev-latest`; it does not create a `vX.Y.Z` tag.
 
 For more details, see `.github/workflows/release.yml`.
 
 ### Workflow Files
 
 - `.github/workflows/ci.yml` - Continuous integration
-- `.github/workflows/release.yml` - Release automation
-- `.github/workflows/docs.yml` - Documentation updates
+- `.github/workflows/lint.yml` - Pull request title linting
+- `.github/workflows/release.yml` - Release automation (dev and prod channels)
+- `.github/workflows/discover.yml` - Reusable workflow listing modules and examples
 
 ### Continuous Integration
 
