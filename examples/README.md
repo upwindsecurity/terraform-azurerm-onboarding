@@ -38,6 +38,8 @@ Additional configuration options:
 - **[tenant-with-tags](tenant-with-tags/)** - Apply custom tags to all resources
 - **[tenant-keyvault-deny](tenant-keyvault-deny/)** - Secure Key Vault with network restrictions
 - **[tenant-keyvault-private](tenant-keyvault-private/)** - Fully private Key Vault (secrets added manually)
+- **[tenant-dspm-scoped](tenant-dspm-scoped/)** - Scope the DSPM/function-scanning storage data-plane grants to an allowlist of storage accounts
+- **[tenant-wif](tenant-wif/)** - Secretless onboarding via workload identity federation
 
 ### SaaS (Provider-Hosted) Examples
 

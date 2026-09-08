@@ -252,7 +252,7 @@ variable "function_storage_accounts" {
 }
 
 variable "dspm_storage_accounts" {
-  description = "Optional list of storage account resource IDs to scope the DSPM data-plane grants (Storage Blob Data Reader / Storage File Data Privileged Reader) to. When set, the grants are assigned only on these accounts instead of every cloudscanner scope; storage accounts created later are invisible to DSPM and to Azure Function scanning's AAD fallback until the list is refreshed and re-applied. Use scripts/list-function-storage-accounts.sh to discover candidates. Replaces the deprecated function_storage_accounts (this variable wins when both are set). Example: [\"/subscriptions/{sub-id}/resourceGroups/{rg}/providers/Microsoft.Storage/storageAccounts/{name}\"]"
+  description = "Optional list of storage account resource IDs to scope the DSPM data-plane grants (Storage Blob Data Reader / Storage File Data Privileged Reader) to. When set, the grants are assigned only on these accounts instead of every cloudscanner scope; storage accounts created later are invisible to DSPM and to Azure Function scanning's AAD fallback until the list is refreshed and re-applied. An EMPTY list is treated as unset and falls back to the broad scopes - to remove the grants entirely use upwind_feature_dspm_enabled = false. Use scripts/list-function-storage-accounts.sh to discover candidates. Replaces the deprecated function_storage_accounts (this variable wins when both are set). Example: [\"/subscriptions/{sub-id}/resourceGroups/{rg}/providers/Microsoft.Storage/storageAccounts/{name}\"]"
   type        = list(string)
   default     = null
 
