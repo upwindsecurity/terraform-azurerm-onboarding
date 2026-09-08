@@ -88,7 +88,10 @@ locals {
   saas_snapshot_worker_role_scopes = length(local.dspm_storage_accounts) > 0 ? local.dspm_storage_accounts : local.saas_snapshot_scopes
 
   saas_snapshot_worker_role_assignments = (var.saas_enabled && local.dspm_enabled) ? {
-    for pair in setproduct(local.saas_snapshot_worker_role_scopes, local.saas_snapshot_worker_roles) :
+    # toset() dedupes user-supplied allowlist entries, mirroring the outpost
+    # storage_reader/storage_file_reader for_each - a raw duplicate would fail
+    # the plan with "Duplicate object key".
+    for pair in setproduct(toset(local.saas_snapshot_worker_role_scopes), local.saas_snapshot_worker_roles) :
     "${pair[0]}|${pair[1]}" => { scope = pair[0], role = pair[1] }
   } : {}
 
