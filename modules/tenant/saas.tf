@@ -81,8 +81,14 @@ locals {
 
   # Snapshot SP worker data-plane roles. These back DSPM (blob/file content read), so
   # they are gated on DSPM being enabled (local.dspm_enabled) in addition to saas_enabled.
+  # When the dspm_storage_accounts allowlist is set, the grants are assigned per storage
+  # account instead of across the broad snapshot scopes - mirroring the outpost
+  # storage_reader/storage_file_reader behaviour so both paths honour the same variable
+  # (UP-6870). Empty allowlist = broad scopes, matching the outpost fallback.
+  saas_snapshot_worker_role_scopes = length(local.dspm_storage_accounts) > 0 ? local.dspm_storage_accounts : local.saas_snapshot_scopes
+
   saas_snapshot_worker_role_assignments = (var.saas_enabled && local.dspm_enabled) ? {
-    for pair in setproduct(local.saas_snapshot_scopes, local.saas_snapshot_worker_roles) :
+    for pair in setproduct(local.saas_snapshot_worker_role_scopes, local.saas_snapshot_worker_roles) :
     "${pair[0]}|${pair[1]}" => { scope = pair[0], role = pair[1] }
   } : {}
 
