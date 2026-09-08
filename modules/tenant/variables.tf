@@ -246,9 +246,26 @@ variable "cloudscanner_exclude_subscriptions" {
 }
 
 variable "function_storage_accounts" {
-  description = "Optional list of storage account resource IDs used by Function Apps. If provided, Storage Blob Data Reader role will only be assigned to these specific storage accounts instead of all resources in scope. Use the list-function-storage-accounts.sh script to discover these. Example: [\"/subscriptions/{sub-id}/resourceGroups/{rg}/providers/Microsoft.Storage/storageAccounts/{name}\"]"
+  description = "DEPRECATED: renamed to dspm_storage_accounts, which takes precedence when set - this name survives for backwards compatibility only. The list scopes the DSPM-gated data-plane grants (Storage Blob Data Reader / Storage File Data Privileged Reader), so it constrains BOTH DSPM's visibility AND Azure Function scanning's AAD fallback - not just function scanning, as this name suggests."
   type        = list(string)
   default     = []
+}
+
+variable "dspm_storage_accounts" {
+  description = "Optional list of storage account resource IDs to scope the DSPM data-plane grants (Storage Blob Data Reader / Storage File Data Privileged Reader) to. When set, the grants are assigned only on these accounts instead of every cloudscanner scope; storage accounts created later are invisible to DSPM and to Azure Function scanning's AAD fallback until the list is refreshed and re-applied. Use scripts/list-function-storage-accounts.sh to discover candidates. Replaces the deprecated function_storage_accounts (this variable wins when both are set). Example: [\"/subscriptions/{sub-id}/resourceGroups/{rg}/providers/Microsoft.Storage/storageAccounts/{name}\"]"
+  type        = list(string)
+  default     = null
+
+  validation {
+    # Both set explicitly to different non-empty lists is a config contradiction -
+    # fail the plan rather than silently preferring one.
+    condition = (
+      var.dspm_storage_accounts == null ||
+      length(var.function_storage_accounts) == 0 ||
+      toset(coalesce(var.dspm_storage_accounts, [])) == toset(var.function_storage_accounts)
+    )
+    error_message = "dspm_storage_accounts and its deprecated alias function_storage_accounts are both set with different values. Set only dspm_storage_accounts."
+  }
 }
 
 # endregion azure
