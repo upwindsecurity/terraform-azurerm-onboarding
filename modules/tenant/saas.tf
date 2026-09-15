@@ -79,19 +79,25 @@ locals {
     "${pair[0]}|${pair[1]}" => { scope = pair[0], role = pair[1] }
   } : {}
 
-  # Snapshot SP worker data-plane roles. These back DSPM (blob/file content read), so
-  # they are gated on DSPM being enabled (local.dspm_enabled) in addition to saas_enabled.
-  # When the dspm_storage_accounts allowlist is set, the grants are assigned per storage
-  # account instead of across the broad snapshot scopes - mirroring the outpost
-  # storage_reader/storage_file_reader behaviour so both paths honour the same variable.
-  # Empty allowlist = broad scopes, matching the outpost fallback.
-  saas_snapshot_worker_role_scopes = length(local.dspm_storage_accounts) > 0 ? local.dspm_storage_accounts : local.saas_snapshot_scopes
+  # Scopes for the Snapshot SP's data-plane READ grants only (Storage Blob Data
+  # Reader / Storage File Data Privileged Reader - the roles that back DSPM and
+  # function-code reading). When the dspm_storage_accounts allowlist is set, these
+  # grants are assigned per storage account instead of across the broad snapshot
+  # scopes, mirroring the outpost storage_reader/storage_file_reader behaviour so
+  # both paths honour the same variable. Empty allowlist = broad scopes, matching
+  # the outpost fallback.
+  #
+  # The allowlist does NOT touch snapshot create/manage permissions: the write
+  # roles (Disk Snapshot Contributor, Data Operator for Managed Disks) stay
+  # confined to the central snapshots RG via saas_snapshot_write_role_assignments,
+  # and the read-scope Reader/target roles are unaffected.
+  saas_dataplane_read_scopes = length(local.dspm_storage_accounts) > 0 ? local.dspm_storage_accounts : local.saas_snapshot_scopes
 
   saas_snapshot_worker_role_assignments = (var.saas_enabled && local.dspm_enabled) ? {
     # toset() dedupes user-supplied allowlist entries, mirroring the outpost
     # storage_reader/storage_file_reader for_each - a raw duplicate would fail
     # the plan with "Duplicate object key".
-    for pair in setproduct(toset(local.saas_snapshot_worker_role_scopes), local.saas_snapshot_worker_roles) :
+    for pair in setproduct(toset(local.saas_dataplane_read_scopes), local.saas_snapshot_worker_roles) :
     "${pair[0]}|${pair[1]}" => { scope = pair[0], role = pair[1] }
   } : {}
 
