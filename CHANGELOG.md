@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.19.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.18.2...v1.19.0) (2026-09-15)
+
+### Features
+
+* **UP-6873:** rename the storage allowlist to dspm_storage_accounts, align the SCM gate ([#107](https://github.com/upwindsecurity/terraform-azurerm-onboarding/issues/107)) ([04ab247](https://github.com/upwindsecurity/terraform-azurerm-onboarding/commit/04ab247bb21cdaa0cc0b62f0f4373a7bc542ac26))
+
 ## [1.3.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.2.0...v1.3.0) (2025-08-22)
 
 ### Features
