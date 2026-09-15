@@ -48,6 +48,7 @@ Secretless onboarding where scanning runs in Upwind's tenant — no customer-sid
 - **[tenant-saas](tenant-saas/)** - SaaS onboarding; the module creates and consents the Snapshot/Fetcher service principals
 - **[tenant-saas-management-groups](tenant-saas-management-groups/)** - SaaS onboarding scoped to specific management groups (no tenant-root scope, no tenant-wide subscription listing)
 - **[tenant-saas-existing-sp](tenant-saas-existing-sp/)** - SaaS onboarding using pre-created service principals (runner needs no Microsoft Graph permissions)
+- **[tenant-saas-dspm-scoped](tenant-saas-dspm-scoped/)** - SaaS onboarding with the DSPM data-plane grants scoped to a storage-account allowlist
 
 ### Advanced Examples
 
