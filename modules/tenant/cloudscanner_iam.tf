@@ -10,6 +10,12 @@ locals {
   # SaaS DSPM marker role.
   dspm_enabled = var.upwind_feature_dspm_enabled && !var.disable_function_scanning
 
+  # Effective storage-account allowlist for the DSPM data-plane grants: the renamed
+  # variable wins, the deprecated function_storage_accounts alias fills in otherwise
+  # (a contradictory combination fails validation on dspm_storage_accounts). Consumers
+  # read this local, never the variables, so the alias handling lives in one place.
+  dspm_storage_accounts = var.dspm_storage_accounts != null ? var.dspm_storage_accounts : var.function_storage_accounts
+
   # Actions granted by CloudScannerTargetRole: target-disk read + begin-access +
   # ACR pull. Shared between the self-hosted (outpost) worker identity and the
   # SaaS Snapshot SP (see saas.tf) so the two paths never drift - mirrors
@@ -150,12 +156,12 @@ resource "azurerm_role_assignment" "cloudscanner_worker" {
 
 # Assign Storage Blob Data Reader role to the worker identity
 # Because this is a data action permission, we can't include this in a custom role definition and assign it at a management group scope.
-# If function_storage_accounts is provided, assign to specific storage accounts only.
+# If the dspm_storage_accounts allowlist is provided, assign to those storage accounts only.
 # Otherwise, assign to all resources in cloudscanner scope.
 resource "azurerm_role_assignment" "storage_reader" {
   for_each = (local.cloudscanner_enabled && local.dspm_enabled) ? (
-    length(var.function_storage_accounts) > 0 ?
-    toset(var.function_storage_accounts) :
+    length(local.dspm_storage_accounts) > 0 ?
+    toset(local.dspm_storage_accounts) :
     toset(local.cloudscanner_scopes)
   ) : []
   role_definition_name = "Storage Blob Data Reader"
@@ -164,12 +170,12 @@ resource "azurerm_role_assignment" "storage_reader" {
 }
 
 # Assign Storage File Data Privileged Reader role to the worker identity
-# If function_storage_accounts is provided, assign to specific storage accounts only.
+# If the dspm_storage_accounts allowlist is provided, assign to those storage accounts only.
 # Otherwise, assign to all resources in cloudscanner scope.
 resource "azurerm_role_assignment" "storage_file_reader" {
   for_each = (local.cloudscanner_enabled && local.dspm_enabled) ? (
-    length(var.function_storage_accounts) > 0 ?
-    toset(var.function_storage_accounts) :
+    length(local.dspm_storage_accounts) > 0 ?
+    toset(local.dspm_storage_accounts) :
     toset(local.cloudscanner_scopes)
   ) : []
 
@@ -178,9 +184,13 @@ resource "azurerm_role_assignment" "storage_file_reader" {
   scope                = each.value
 }
 
-# Assign a least-privilege App Service SCM bearer role to the worker identity
+# Assign a least-privilege App Service SCM bearer role to the worker identity.
+# Gated on local.dspm_enabled like every other function-scanning-adjacent grant in this
+# file: previously this keyed on !disable_function_scanning alone, so opting out via
+# upwind_feature_dspm_enabled=false left an orphaned SCM role behind with all of its
+# related grants absent (UP-6873).
 resource "azurerm_role_definition" "app_service_scm_bearer_reader" {
-  for_each = (local.cloudscanner_enabled && !var.disable_function_scanning) ? toset(local.cloudscanner_scopes) : []
+  for_each = (local.cloudscanner_enabled && local.dspm_enabled) ? toset(local.cloudscanner_scopes) : []
 
   name        = "CloudScannerAppServiceScmRole-${local.resource_suffix}-${split("/", each.value)[length(split("/", each.value)) - 1]}"
   description = "Role for CloudScanner workers to read App Service metadata and access SCM with bearer authentication in this scope"
@@ -195,7 +205,7 @@ resource "azurerm_role_definition" "app_service_scm_bearer_reader" {
 }
 
 resource "time_sleep" "app_service_scm_bearer_reader_role_definition_wait" {
-  count           = (local.cloudscanner_enabled && !var.disable_function_scanning) ? 1 : 0
+  count           = (local.cloudscanner_enabled && local.dspm_enabled) ? 1 : 0
   depends_on      = [azurerm_role_definition.app_service_scm_bearer_reader]
   create_duration = var.azure_role_definition_wait_time
 }

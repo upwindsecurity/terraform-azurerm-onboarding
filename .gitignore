@@ -149,3 +149,4 @@ Gemfile.lock
 # Local development
 .local/
 local/
+.e2e-wif/
