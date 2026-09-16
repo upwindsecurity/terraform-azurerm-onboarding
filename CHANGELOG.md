@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.21.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.20.0...v1.21.0) (2026-09-16)
+
+### Features
+
+* accept the pdc02 region for upwind_region ([#111](https://github.com/upwindsecurity/terraform-azurerm-onboarding/issues/111)) ([b6edb99](https://github.com/upwindsecurity/terraform-azurerm-onboarding/commit/b6edb997eee0babe930fabd5c16ed0b095532fb4))
+
 ## [1.3.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.2.0...v1.3.0) (2025-08-22)
 
 ### Features
