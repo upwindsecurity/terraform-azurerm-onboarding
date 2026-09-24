@@ -59,13 +59,13 @@ variable "upwind_integration_endpoint" {
 }
 
 variable "upwind_region" {
-  description = "The region where the Upwind components will be deployed. Must be 'us', 'eu', 'ap' or 'me'"
+  description = "The region where the Upwind components will be deployed. Must be 'us', 'eu', 'ap', 'me', or 'pdcXX' (e.g. 'pdc02')"
   type        = string
   default     = "us"
 
   validation {
-    condition     = var.upwind_region == "us" || var.upwind_region == "eu" || var.upwind_region == "me" || var.upwind_region == "pdc01" || var.upwind_region == "ap" || var.upwind_region == "pdc02"
-    error_message = "upwind_region must be either 'us', 'eu', 'ap' or 'me'."
+    condition     = contains(["us", "eu", "me", "ap"], var.upwind_region) || can(regex("^pdc[0-9]{2}$", var.upwind_region))
+    error_message = "upwind_region must be one of 'us', 'eu', 'ap', 'me', or 'pdcXX' (where XX is two digits, e.g. 'pdc02')."
   }
 }
 

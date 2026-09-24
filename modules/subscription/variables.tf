@@ -7,12 +7,12 @@ variable "upwind_organization_id" {
 
 variable "upwind_region" {
   type        = string
-  description = "Which Upwind region to communicate with. 'us', 'eu', 'ap' or 'me'"
+  description = "Which Upwind region to communicate with. 'us', 'eu', 'ap', 'me', or 'pdcXX' (e.g. 'pdc02')"
   default     = "us"
 
   validation {
-    condition     = var.upwind_region == "us" || var.upwind_region == "eu" || var.upwind_region == "me" || var.upwind_region == "pdc01" || var.upwind_region == "ap"
-    error_message = "upwind_region must be either 'us', 'eu', 'ap' or 'me'."
+    condition     = contains(["us", "eu", "me", "ap"], var.upwind_region) || can(regex("^pdc[0-9]{2}$", var.upwind_region))
+    error_message = "upwind_region must be one of 'us', 'eu', 'ap', 'me', or 'pdcXX' (where XX is two digits, e.g. 'pdc02')."
   }
 }
 
