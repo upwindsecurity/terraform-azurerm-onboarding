@@ -1,5 +1,6 @@
 terraform {
-  required_version = ">= 1.2"
+  # >= 1.4 required for the terraform_data resource used as the onboard re-POST trigger.
+  required_version = ">= 1.4"
 
   required_providers {
     azuread = {
@@ -21,6 +22,10 @@ terraform {
     time = {
       source  = "hashicorp/time"
       version = "~> 0.8"
+    }
+    terracurl = {
+      source  = "devops-rob/terracurl"
+      version = "~> 2.11"
     }
   }
 }
