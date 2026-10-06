@@ -1,6 +1,5 @@
 terraform {
-  # >= 1.4 required for the terraform_data resource used as the onboard re-POST trigger.
-  required_version = ">= 1.4"
+  required_version = ">= 1.2"
 
   required_providers {
     azuread = {
