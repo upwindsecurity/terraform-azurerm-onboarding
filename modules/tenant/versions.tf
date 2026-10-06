@@ -29,5 +29,9 @@ terraform {
       source  = "hashicorp/null"
       version = ">= 3"
     }
+    terracurl = {
+      source  = "devops-rob/terracurl"
+      version = ">= 2.11"
+    }
   }
 }
