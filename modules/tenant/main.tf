@@ -458,8 +458,7 @@ resource "terracurl_request" "upwind_onboard_organizational_credentials" {
   }
 }
 
-# Replaced whenever the onboard credentials change, which replaces (re-POSTs) the request above.
-# The secret is hashed, so state holds only a fingerprint.
+# Replaced when the onboard inputs change, which replaces (re-POSTs) the request above.
 resource "terraform_data" "upwind_onboard_trigger" {
   count = local.create_credentials ? 1 : 0
   input = sha256(jsonencode({
@@ -467,6 +466,8 @@ resource "terraform_data" "upwind_onboard_trigger" {
     subscription = var.azure_orchestrator_subscription_id
     client_id    = local.application_client_id
     secret       = local.create_new_application ? azuread_application_password.client_secret[0].value : var.azure_application_client_secret
+    organization = var.upwind_organization_id
+    endpoint     = local.upwind_integration_endpoint
   }))
 }
 
