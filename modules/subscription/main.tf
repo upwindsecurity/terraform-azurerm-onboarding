@@ -302,15 +302,17 @@ data "http" "upwind_get_cloud_credentials_request" {
   }
 }
 
-# Create cloud credentials for unconnected subscriptions.
-# tflint-ignore: terraform_unused_declarations
-data "http" "upwind_create_cloud_credentials_request" {
+# Create cloud credentials for unconnected subscriptions. Managed resource (cross-platform, no
+# shell): POSTs on create and, with skip_destroy, nothing on destroy. A data source would be
+# re-read on the destroy refresh and recreate credentials for a just-disconnected subscription.
+resource "terracurl_request" "upwind_create_cloud_credentials" {
   for_each = toset(local.unconnected_subscription_ids)
   depends_on = [
     time_sleep.azurerm_builtin_role_assignment_wait,
     time_sleep.azurerm_custom_role_assignment_wait,
   ]
 
+  name   = "upwind-cloud-credentials-${each.value}"
   method = "POST"
 
   url = format(
@@ -323,44 +325,37 @@ data "http" "upwind_create_cloud_credentials_request" {
     var.upwind_organization_id,
   )
 
-  request_headers = {
+  headers = {
     "Content-Type"  = "application/json"
     "Authorization" = format("Bearer %s", local.upwind_access_token)
   }
 
-  request_body = jsonencode(
-    {
-      "provider" = {
-        "name"            = "azure",
-        "subscription_id" = each.value
-      },
-      "spec" = {
-        "tenant_id"     = data.azuread_client_config.current.tenant_id
-        "client_id"     = azuread_application.this.client_id,
-        "client_secret" = azuread_application_password.client_secret.value,
-      }
+  request_body = jsonencode({
+    provider = {
+      name            = "azure"
+      subscription_id = each.value
     }
-  )
+    spec = {
+      tenant_id     = data.azuread_client_config.current.tenant_id
+      client_id     = azuread_application.this.client_id
+      client_secret = azuread_application_password.client_secret.value
+    }
+  })
 
-  retry {
-    attempts = 3
-  }
+  # The old data.http left its postcondition disabled, so any status passed. terracurl requires
+  # expected codes; this covers the endpoint's success/benign responses.
+  response_codes = ["200", "201", "202", "204", "409"]
+  max_retry      = 3
+  retry_interval = 10
+
+  # Fire once on create; no remote state to reconcile, and never POST on destroy.
+  skip_read    = true
+  skip_destroy = true
 
   lifecycle {
     precondition {
       condition     = local.upwind_access_token != null
       error_message = "Unable to obtain access token. Please verify your client ID and client secret. Response: ${data.http.upwind_get_access_token_request.response_body}."
     }
-
-    # The fix #35895 for issue #34310 is included in version 1.10.0 and later.
-    # Since version 1.10.0 was recently released and is not yet widely adopted,
-    # using postconditions could introduce or exacerbate errors. To prevent
-    # potential issues, we should avoid using postconditions until this version
-    # is more commonly utilized.
-    #
-    # postcondition {
-    #   condition     = contains([201, 204], self.status_code)
-    #   error_message = "Error encountered with status code: ${self.status_code}. Response: ${self.response_body}."
-    # }
   }
 }
