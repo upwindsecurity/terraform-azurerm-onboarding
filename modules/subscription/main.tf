@@ -357,21 +357,5 @@ resource "terracurl_request" "upwind_create_cloud_credentials" {
       condition     = local.upwind_access_token != null
       error_message = "Unable to obtain access token. Please verify your client ID and client secret. Response: ${data.http.upwind_get_access_token_request.response_body}."
     }
-    # Re-send when the cloud-credential inputs change.
-    replace_triggered_by = [terraform_data.upwind_cloud_credentials_trigger[each.key].output]
   }
-}
-
-# Replaced when the inputs below change, which replaces (re-POSTs) the request above.
-resource "terraform_data" "upwind_cloud_credentials_trigger" {
-  for_each = toset(local.unconnected_subscription_ids)
-  input = sha256(jsonencode({
-    subscription = each.value
-    tenant       = data.azuread_client_config.current.tenant_id
-    client_id    = azuread_application.this.client_id
-    secret       = azuread_application_password.client_secret.value
-    organization = var.upwind_organization_id
-    endpoint     = var.upwind_integration_endpoint
-    region       = var.upwind_region
-  }))
 }

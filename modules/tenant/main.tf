@@ -403,7 +403,8 @@ resource "time_sleep" "builtin_role_assignment_wait" {
 # Onboard the pending tenant. terracurl_request is a managed resource (cross-platform, no shell):
 # it POSTs on create and, with skip_destroy, issues nothing on destroy. A data source would be
 # re-read on the destroy refresh and recreate an offboarded tenant's credentials. allow_overwrite
-# is always true since this only runs on a deliberate apply.
+# tolerates an existing credential (update instead of a 409). Credential rotation is a separate
+# console/PATCH flow, not a re-apply.
 resource "terracurl_request" "upwind_onboard_organizational_credentials" {
   count = local.create_credentials ? 1 : 0
 
@@ -453,22 +454,7 @@ resource "terracurl_request" "upwind_onboard_organizational_credentials" {
       condition     = local.upwind_access_token != null
       error_message = "Unable to obtain access token. Please verify your client ID and client secret. Response: ${try(data.http.upwind_get_access_token_request[0].response_body, "")}."
     }
-    # Re-onboard when the credentials change (new app reg, rotated secret, new orchestrator sub).
-    replace_triggered_by = [terraform_data.upwind_onboard_trigger[0].output]
   }
-}
-
-# Replaced when the onboard inputs change, which replaces (re-POSTs) the request above.
-resource "terraform_data" "upwind_onboard_trigger" {
-  count = local.create_credentials ? 1 : 0
-  input = sha256(jsonencode({
-    tenant       = local.pending_tenant
-    subscription = var.azure_orchestrator_subscription_id
-    client_id    = local.application_client_id
-    secret       = local.create_new_application ? azuread_application_password.client_secret[0].value : var.azure_application_client_secret
-    organization = var.upwind_organization_id
-    endpoint     = local.upwind_integration_endpoint
-  }))
 }
 
 # endregion
