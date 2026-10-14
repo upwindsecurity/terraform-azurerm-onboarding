@@ -5,16 +5,12 @@ on:
       - main
   workflow_dispatch:
     inputs:
-      tag_latest:
-        description: 'Tag as latest release'
-        required: false
-        type: boolean
-        default: false
-      prerelease:
-        description: 'Mark as prerelease'
-        required: false
-        type: boolean
-        default: false
+      deploy:
+        description: 'Release channel. dev can run from any branch; prod can only run from a tag'
+        required: true
+        type: choice
+        options: [dev, prod]
+        default: dev
 
 permissions:
   contents: write        # Required to create and push release tags
@@ -27,6 +23,7 @@ jobs:
     uses: ./.github/workflows/discover.yml
 
   release:
+    environment: ${{github.event.inputs.deploy || 'dev'}}
     name: Release
     runs-on: ubuntu-latest
     needs: discover-modules
@@ -52,26 +49,43 @@ jobs:
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
 
+    - name: Resolve release channel
+      id: channel
+      run: |
+        set -euo pipefail
+        DEPLOY="${{ github.event.inputs.deploy || 'dev' }}"
+        if [[ "${DEPLOY}" == "prod" ]]; then
+          if [[ "${{ github.ref_type }}" != "tag" ]]; then
+            echo "::error::prod releases must run from a tag, not ${{ github.ref_type }} '${{ github.ref_name }}'"
+            echo "::error::Select a vX.Y.Z tag in 'Use workflow from' - tags are created automatically by the dev release on push to main."
+            exit 1
+          fi
+          if [[ ! "${{ github.ref_name }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::prod requires a vX.Y.Z tag, got '${{ github.ref_name }}'"
+            echo "::error::Pre-release tags such as v1.19.0-dev.abc1234 cannot be promoted to prod."
+            exit 1
+          fi
+          echo "channel=prod-latest" >> "$GITHUB_OUTPUT"
+        else
+          echo "channel=dev-latest" >> "$GITHUB_OUTPUT"
+        fi
+        echo "deploy=${DEPLOY}" >> "$GITHUB_OUTPUT"
+
     # Manual release path
-    - name: Manual Release
+    - name: Resolve version
       id: manual-release
       if: github.event_name == 'workflow_dispatch'
       run: |
-        # Get the ref that was selected in "Use workflow from"
-        REF_NAME="${{ github.ref_name }}"
-
-        # Verify we're on a tag (not a branch)
-        if [[ ! "${{ github.ref }}" =~ ^refs/tags/ ]]; then
-          echo "Error: Manual release must be run from a tag, not a branch"
-          echo "Please select a tag from the 'Use workflow from' dropdown"
-          exit 1
+        set -euo pipefail
+        if [[ "${{ github.ref_type }}" == "tag" ]]; then
+          VERSION="${GITHUB_REF_NAME#v}"
+        else
+          BASE=$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || echo v0.0.0)
+          VERSION="${BASE#v}-dev.$(git rev-parse --short HEAD)"
         fi
-
-        echo "Releasing from tag: $REF_NAME"
-
-        echo "created=true" >> $GITHUB_OUTPUT
-        echo "version=$REF_NAME" >> $GITHUB_OUTPUT
-        echo "tag=$REF_NAME" >> $GITHUB_OUTPUT
+        echo "created=true"       >> "$GITHUB_OUTPUT"
+        echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+        echo "tag=v${VERSION}"    >> "$GITHUB_OUTPUT"
 
     # Automatic semantic release path (only on push to main)
     - name: Semantic Release
@@ -119,12 +133,9 @@ jobs:
         # Get repository name for package naming
         REPO_NAME=$(echo ${{ github.repository }} | cut -d'/' -f2)
 
-        # Determine version
-        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-          RELEASE_VERSION="${{ steps.manual-release.outputs.version }}"
-        else
-          RELEASE_VERSION="${{ steps.semantic-release.outputs.new_release_version }}"
-        fi
+        # Determine version. Both paths emit a v-less version, so tarball names
+        # are identical whether a release reached this channel via push or dispatch.
+        RELEASE_VERSION="${{ steps.manual-release.outputs.version || steps.semantic-release.outputs.new_release_version }}"
 
         # Package each discovered module dynamically
         echo "Discovered modules: ${{ needs.discover-modules.outputs.modules }}"
@@ -148,9 +159,18 @@ jobs:
       with:
         tag_name: ${{ steps.manual-release.outputs.tag || format('v{0}', steps.semantic-release.outputs.new_release_version) }}
         files: release-artifacts/*.tar.gz
-        make_latest: ${{ github.event_name == 'push' || github.event.inputs.tag_latest == 'true' }}
-        prerelease: ${{ github.event.inputs.prerelease == 'true' }}
-        generate_release_notes: true
-        name: ${{ github.event_name == 'workflow_dispatch' && format('Release {0}', github.event.inputs.version) || '' }}
+        make_latest: ${{ steps.channel.outputs.deploy == 'prod' }}
+        prerelease: ${{ steps.channel.outputs.deploy != 'prod' }}
+        draft: false
+        generate_release_notes: ${{ steps.channel.outputs.deploy == 'prod' }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Move channel pointer
+      if: steps.manual-release.outputs.created == 'true' || steps.semantic-release.outputs.new_release_published == 'true'
+      env:
+        CHANNEL: ${{ steps.channel.outputs.channel }}
+      run: |
+        git tag -f "${CHANNEL}"
+        git push -f origin "refs/tags/${CHANNEL}"
+
