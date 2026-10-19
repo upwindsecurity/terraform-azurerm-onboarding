@@ -18,7 +18,7 @@ locals {
 
 # Microsoft.Compute must be registered in the orchestrator subscription. The Snapshot SP
 # writes Microsoft.Compute/snapshots into the central snapshots RG, and its role set
-# (Reader, Disk Snapshot Contributor, Data Operator for Managed Disks, CloudScannerTargetRole)
+# (Reader, Disk Snapshot Contributor, CloudScannerTargetRole)
 # carries no */register/action - so it cannot register the provider itself, and the first
 # snapshot fails with MissingSubscriptionRegistration on an orchestrator subscription that has
 # never held a VM. The outpost path never needed this: its deployer role holds

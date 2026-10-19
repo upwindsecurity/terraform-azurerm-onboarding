@@ -33,7 +33,7 @@ The module assigns the two service principals their scoped roles at the tenant-r
 group:
 
 - Snapshot SP (read, at the MG): Reader + a CloudScannerTargetRole custom role + Storage Blob/File data-plane readers
-- Snapshot SP (write/delete, confined to the central snapshots RG in the orchestrator subscription): Disk Snapshot Contributor + Data Operator for Managed Disks
+- Snapshot SP (write/delete, confined to the central snapshots RG in the orchestrator subscription): Disk Snapshot Contributor
 - Fetcher SP (at the MG): the built-in read roles (`azure_roles`) + a custom role (`azure_custom_role_permissions`)
 
 The module also creates the central snapshots resource group in the orchestrator subscription
