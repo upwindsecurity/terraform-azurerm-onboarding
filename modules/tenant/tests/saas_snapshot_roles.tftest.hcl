@@ -1,4 +1,4 @@
-# UP-10552: the Snapshot SP's write/delete grant on the central snapshots RG is
+# The Snapshot SP's write/delete grant on the central snapshots RG is
 # control-plane only. The SaaS worker snapshots the customer disk into that RG and
 # copies it cross-tenant with an ARM disk create carrying an auxiliary token; it
 # never exports snapshot bytes via SAS, so the Data Operator for Managed Disks

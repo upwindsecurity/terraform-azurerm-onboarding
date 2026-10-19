@@ -36,7 +36,7 @@ locals {
   # snapshots the customer disk into this RG and copies it cross-tenant with an
   # ARM disk create (auxiliary token), never via SAS export. Data Operator for
   # Managed Disks (snapshots/disks download/upload DataActions) was granted here
-  # until UP-10552 but is exercised by no code path, so it is no longer assigned.
+  # previously but is exercised by no code path, so it is no longer assigned.
   saas_snapshot_write_roles = ["Disk Snapshot Contributor"]
 
   # Central snapshots RG name (orchestrator subscription). Convention: upwind-cs-rg-<orgId>.
