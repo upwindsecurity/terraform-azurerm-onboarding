@@ -51,7 +51,7 @@ app registrations in the customer tenant and assigns them scoped roles:
 - Snapshot SP (read, at the tenant-root management group): Reader + a CloudScannerTargetRole
   custom role + Storage Blob/File data-plane readers
 - Snapshot SP (write/delete, confined to the central snapshots RG in the orchestrator
-  subscription): Disk Snapshot Contributor + Data Operator for Managed Disks
+  subscription): Disk Snapshot Contributor
 - Fetcher SP (at the tenant-root management group): the built-in read roles (`azure_roles`) + a
   custom role (`azure_custom_role_permissions`)
 

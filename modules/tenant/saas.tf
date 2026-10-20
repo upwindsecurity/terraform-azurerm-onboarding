@@ -20,10 +20,9 @@
 # Snapshot write/delete is NOT granted at the read scope. Only non-destructive roles
 # are assigned there (Reader, read-only CloudScannerTargetRole, worker storage
 # readers, and the Fetcher's read roles). The Snapshot SP's snapshot write/delete
-# (Disk Snapshot Contributor + Data Operator) is confined to a single central
-# snapshots resource group created in the orchestrator subscription. The worker
-# creates each snapshot in that RG, sourcing the customer disk it reads via the
-# read grant.
+# (Disk Snapshot Contributor) is confined to a single central snapshots resource
+# group created in the orchestrator subscription. The worker creates each snapshot
+# in that RG, sourcing the customer disk it reads via the read grant.
 
 locals {
   # --- Snapshot SP (mirrors the outpost worker identity) ---
@@ -33,8 +32,12 @@ locals {
   saas_snapshot_roles = ["Reader"]
 
   # Snapshot write/delete roles, assigned ONLY on the central snapshots RG in the
-  # orchestrator subscription (never tenant-wide).
-  saas_snapshot_write_roles = ["Disk Snapshot Contributor", "Data Operator for Managed Disks"]
+  # orchestrator subscription (never tenant-wide). Control-plane only: the worker
+  # snapshots the customer disk into this RG and copies it cross-tenant with an
+  # ARM disk create (auxiliary token), never via SAS export. Data Operator for
+  # Managed Disks (snapshots/disks download/upload DataActions) was granted here
+  # previously but is exercised by no code path, so it is no longer assigned.
+  saas_snapshot_write_roles = ["Disk Snapshot Contributor"]
 
   # Central snapshots RG name (orchestrator subscription). Convention: upwind-cs-rg-<orgId>.
   saas_snapshot_resource_group_name = var.customer_snapshot_resource_group != "" ? var.customer_snapshot_resource_group : "upwind-cs-rg-${var.upwind_organization_id}"
@@ -88,9 +91,9 @@ locals {
   # the outpost fallback.
   #
   # The allowlist does NOT touch snapshot create/manage permissions: the write
-  # roles (Disk Snapshot Contributor, Data Operator for Managed Disks) stay
-  # confined to the central snapshots RG via saas_snapshot_write_role_assignments,
-  # and the read-scope Reader/target roles are unaffected.
+  # role (Disk Snapshot Contributor) stays confined to the central snapshots RG
+  # via saas_snapshot_write_role_assignments, and the read-scope Reader/target
+  # roles are unaffected.
   saas_dataplane_read_scopes = length(local.dspm_storage_accounts) > 0 ? local.dspm_storage_accounts : local.saas_snapshot_scopes
 
   saas_snapshot_worker_role_assignments = (var.saas_enabled && local.dspm_enabled) ? {
@@ -176,7 +179,7 @@ resource "azurerm_resource_group" "saas_snapshots" {
   tags     = var.tags
 }
 
-# Snapshot SP -> Disk Snapshot Contributor + Data Operator, scoped to the central
+# Snapshot SP -> Disk Snapshot Contributor, scoped to the central
 # snapshots RG only (never tenant-wide). This is the sole destructive grant.
 resource "azurerm_role_assignment" "saas_snapshot_write" {
   for_each = local.saas_snapshot_write_role_assignments
