@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.22.2](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.22.1...v1.22.2) (2026-10-20)
+
+### Bug Fixes
+
+* **UP-10552:** drop Data Operator for Managed Disks from the SaaS snapshot RG grant ([#118](https://github.com/upwindsecurity/terraform-azurerm-onboarding/issues/118)) ([5794d90](https://github.com/upwindsecurity/terraform-azurerm-onboarding/commit/5794d9054ae04dd4f49eabc30c20e37f323ad9c3))
+
 ## [1.3.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.2.0...v1.3.0) (2025-08-22)
 
 ### Features
