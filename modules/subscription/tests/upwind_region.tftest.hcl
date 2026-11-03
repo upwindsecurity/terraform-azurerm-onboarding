@@ -130,6 +130,24 @@ run "ap_region_inserted_into_endpoints" {
   }
 }
 
+run "au_region_inserted_into_endpoints" {
+  command = plan
+  variables { upwind_region = "au" }
+
+  assert {
+    condition     = data.http.upwind_get_access_token_request.url == "https://auth.au.upwind.io/oauth/token"
+    error_message = "unexpected auth URL"
+  }
+  assert {
+    condition     = strcontains(data.http.upwind_get_access_token_request.request_body, "audience=https://integration.au.upwind.io&")
+    error_message = "unexpected audience"
+  }
+  assert {
+    condition     = data.http.upwind_get_cloud_credentials_request.url == "https://integration.au.upwind.io/v1/organizations/org_test/cloud-credentials"
+    error_message = "unexpected integration URL"
+  }
+}
+
 run "pdc01_region_inserted_into_endpoints" {
   command = plan
   variables { upwind_region = "pdc01" }
