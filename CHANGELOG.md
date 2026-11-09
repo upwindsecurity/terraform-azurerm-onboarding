@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.6.4](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.6.3...v1.6.4) (2026-02-12)
+
+### Bug Fixes
+
+* **AG-0:** setting soft delete and purge protection on orgwide key vault ([#38](https://github.com/upwindsecurity/terraform-azurerm-onboarding/issues/38)) ([f1acf11](https://github.com/upwindsecurity/terraform-azurerm-onboarding/commit/f1acf11a45de1512c10d00b1e737e4aee8aaec46))
+
 ## [1.3.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.2.0...v1.3.0) (2025-08-22)
 
 ### Features
