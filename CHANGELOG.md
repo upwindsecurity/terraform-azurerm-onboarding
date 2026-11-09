@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.22.1](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.22.0...v1.22.1) (2026-10-20)
+
+### Bug Fixes
+
+* **UP-10875:** remove the unused listkeys from terraform module ([#119](https://github.com/upwindsecurity/terraform-azurerm-onboarding/issues/119)) ([62630b5](https://github.com/upwindsecurity/terraform-azurerm-onboarding/commit/62630b51780fcea6803dd31595c20c30bca7d07b))
+
 ## [1.3.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.2.0...v1.3.0) (2025-08-22)
 
 ### Features
