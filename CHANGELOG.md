@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.10.1](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.10.0...v1.10.1) (2026-06-10)
+
+### Bug Fixes
+
+* **UP-2038:** include scope in CloudScannerAppServiceScmRole name ([#73](https://github.com/upwindsecurity/terraform-azurerm-onboarding/issues/73)) ([ced5f30](https://github.com/upwindsecurity/terraform-azurerm-onboarding/commit/ced5f308bcfb75651997c6c7f38e5520918717c9))
+
 ## [1.3.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.2.0...v1.3.0) (2025-08-22)
 
 ### Features
