@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.8.1](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.8.0...v1.8.1) (2026-05-06)
+
+### Bug Fixes
+
+* **AG-8746:** validating the upwind_client_id and upwind_client_secret is non-empty ([#64](https://github.com/upwindsecurity/terraform-azurerm-onboarding/issues/64)) ([b8b708c](https://github.com/upwindsecurity/terraform-azurerm-onboarding/commit/b8b708ce9d3e3e6d4df4b5297058eb19f369dea8))
+
 ## [1.3.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.2.0...v1.3.0) (2025-08-22)
 
 ### Features
