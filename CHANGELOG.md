@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.10.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.9.0...v1.10.0) (2026-06-04)
+
+### Features
+
+* **UP-354:** add Cognitive Services Data Reader to default roles ([#67](https://github.com/upwindsecurity/terraform-azurerm-onboarding/issues/67)) ([4de3d03](https://github.com/upwindsecurity/terraform-azurerm-onboarding/commit/4de3d03a9c00326d3ef324b9960ec20f7648f3fa))
+
 ## [1.3.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.2.0...v1.3.0) (2025-08-22)
 
 ### Features
