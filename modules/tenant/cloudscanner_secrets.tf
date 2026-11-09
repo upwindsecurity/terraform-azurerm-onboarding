@@ -46,11 +46,14 @@ resource "azurerm_key_vault" "orgwide_key_vault" {
   })
 }
 
-# Create private DNS zone for Key Vault, dns links will be added per cloudscanner deployment
-resource "azurerm_private_dns_zone" "orgwide_keyvault_dns_zone" {
-  count               = local.cloudscanner_enabled && (var.key_vault_deny_traffic || var.key_vault_private_network) ? 1 : 0
-  name                = "privatelink.vaultcore.azure.net"
-  resource_group_name = azurerm_resource_group.orgwide_resource_group[0].name
+# Each scanner deployment now creates its own Key Vault private DNS zone. The old shared zone is
+# left in place: Azure won't delete it while existing scanners are still linked to it.
+removed {
+  from = azurerm_private_dns_zone.orgwide_keyvault_dns_zone
+
+  lifecycle {
+    destroy = false
+  }
 }
 
 resource "azurerm_role_assignment" "kv_admin" {
