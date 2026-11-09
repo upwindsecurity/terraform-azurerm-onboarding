@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.14.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.13.1...v1.14.0) (2026-07-15)
+
+### Features
+
+* **UP-3130:** mint DSPM marker role + add upwind_feature_dspm_enabled ([#86](https://github.com/upwindsecurity/terraform-azurerm-onboarding/issues/86)) ([a1d00a1](https://github.com/upwindsecurity/terraform-azurerm-onboarding/commit/a1d00a1b229ed5b8fa61a6633fb52390ee26a2fb))
+
 ## [1.3.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.2.0...v1.3.0) (2025-08-22)
 
 ### Features
