@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.12.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.11.0...v1.12.0) (2026-07-08)
+
+### Features
+
+* **UP-1777:** saas role parity + re-add Web/sites/host/listkeys to custom role ([#79](https://github.com/upwindsecurity/terraform-azurerm-onboarding/issues/79)) ([fa9e2af](https://github.com/upwindsecurity/terraform-azurerm-onboarding/commit/fa9e2af7e598832033c2df8e6a0de6d8ff8cbd6f))
+
 ## [1.3.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.2.0...v1.3.0) (2025-08-22)
 
 ### Features
