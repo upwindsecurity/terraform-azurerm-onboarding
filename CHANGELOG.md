@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.20.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.19.0...v1.20.0) (2026-09-15)
+
+### Features
+
+* **UP-6870:** honour the dspm_storage_accounts allowlist on the SaaS data-plane grants ([#108](https://github.com/upwindsecurity/terraform-azurerm-onboarding/issues/108)) ([2cc1b6a](https://github.com/upwindsecurity/terraform-azurerm-onboarding/commit/2cc1b6a326e01368343184a4080a97adbf1d15ec))
+
 ## [1.3.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.2.0...v1.3.0) (2025-08-22)
 
 ### Features
