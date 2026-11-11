@@ -200,6 +200,9 @@ locals {
 # Retrieve the current Azure AD client configuration.
 data "azuread_client_config" "current" {}
 
+# to check that the principal applying this TF is pointed at the orchestrator subscription
+data "azurerm_client_config" "current" {}
+
 # Get all subscriptions visible to the provider credentials, for exclude logic.
 # Read only by tenant-scoped onboarding: a management group scoped onboarding
 # enumerates its own hierarchy instead (data.azurerm_management_group.scope), so
@@ -220,6 +223,13 @@ data "azurerm_management_group" "scope" {
 # Retrieve the orchestrator Azure subscription details.
 data "azurerm_subscription" "orchestrator" {
   subscription_id = var.azure_orchestrator_subscription_id
+
+  lifecycle {
+    precondition {
+      condition     = data.azurerm_client_config.current.subscription_id == var.azure_orchestrator_subscription_id
+      error_message = "The current subscription ID does not match the provided orchestrator subscription ID."
+    }
+  }
 }
 
 # Retrieve application IDs for APIs published by Microsoft.

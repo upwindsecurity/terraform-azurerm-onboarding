@@ -4,6 +4,11 @@ mock_provider "azurerm" {
       subscription_id = "00000000-0000-0000-0000-000000000000"
     }
   }
+  mock_data "azurerm_client_config" {
+    defaults = {
+      subscription_id = "00000000-0000-0000-0000-000000000000"
+    }
+  }
 }
 mock_provider "azuread" {
   mock_data "azuread_client_config" {
