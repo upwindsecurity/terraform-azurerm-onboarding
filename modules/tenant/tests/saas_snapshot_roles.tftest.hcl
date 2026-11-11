@@ -11,6 +11,11 @@ mock_provider "azurerm" {
       tenant_id       = "00000000-0000-0000-0000-000000000002"
     }
   }
+  mock_data "azurerm_client_config" {
+    defaults = {
+      subscription_id = "00000000-0000-0000-0000-000000000000"
+    }
+  }
 }
 mock_provider "azuread" {
   mock_data "azuread_client_config" {
@@ -20,6 +25,7 @@ mock_provider "azuread" {
     }
   }
 }
+
 mock_provider "random" {}
 mock_provider "time" {}
 mock_provider "http" {}
