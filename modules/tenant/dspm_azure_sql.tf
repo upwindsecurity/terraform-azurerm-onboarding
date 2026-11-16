@@ -51,10 +51,12 @@
 # privateEndpointConnections/write instead).
 
 locals {
-  # Requires the umbrella DSPM opt-in too, so a customer who turned DSPM off gets
-  # no SQL DSPM roles. Outpost also needs CloudScanner: without it there is no
-  # worker to scan the copies (see the check block below).
-  dspm_azure_sql_requested = var.upwind_feature_dspm_azure_sql_enabled && var.upwind_feature_dspm_enabled
+  # Requires DSPM to be enabled too (local.dspm_enabled, like every other DSPM
+  # grant: upwind_feature_dspm_enabled and not the legacy
+  # disable_function_scanning), so a customer who turned DSPM off by either
+  # control gets no SQL DSPM roles. Outpost also needs CloudScanner: without it
+  # there is no worker to scan the copies (see the check block below).
+  dspm_azure_sql_requested = var.upwind_feature_dspm_azure_sql_enabled && local.dspm_enabled
   dspm_azure_sql_enabled   = local.dspm_azure_sql_requested && (var.saas_enabled || local.cloudscanner_enabled)
   dspm_azure_sql_outpost   = local.dspm_azure_sql_enabled && !var.saas_enabled
 

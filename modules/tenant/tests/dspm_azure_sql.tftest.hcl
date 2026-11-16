@@ -282,6 +282,8 @@ run "enabled_without_cloudscanner_creates_nothing_and_warns" {
   }
 }
 
+# Either DSPM opt-out wins over the SQL flag, as for every other DSPM grant
+# (local.dspm_enabled).
 run "dspm_opt_out_wins" {
   command = plan
   variables {
@@ -294,8 +296,32 @@ run "dspm_opt_out_wins" {
       length(azurerm_resource_group.dspm_sql) == 0 &&
       length(azurerm_role_definition.dspm_sql_scan_instance_operator) == 0 &&
       length(azurerm_role_definition.dspm_sql_scan_network) == 0 &&
-      length(azurerm_role_definition.dspm_sql_network_join) == 0
+      length(azurerm_role_definition.dspm_sql_network_join) == 0 &&
+      length(azurerm_role_assignment.dspm_sql_scan_instance_operator) == 0 &&
+      length(azurerm_role_assignment.dspm_sql_scan_network) == 0 &&
+      length(azurerm_role_assignment.dspm_sql_network_join) == 0
     )
     error_message = "with upwind_feature_dspm_enabled = false no SQL DSPM roles may be granted, whatever upwind_feature_dspm_azure_sql_enabled says"
+  }
+}
+
+run "legacy_dspm_opt_out_wins" {
+  command = plan
+  variables {
+    disable_function_scanning             = true
+    upwind_feature_dspm_azure_sql_enabled = true
+  }
+
+  assert {
+    condition = (
+      length(azurerm_resource_group.dspm_sql) == 0 &&
+      length(azurerm_role_definition.dspm_sql_scan_instance_operator) == 0 &&
+      length(azurerm_role_definition.dspm_sql_scan_network) == 0 &&
+      length(azurerm_role_definition.dspm_sql_network_join) == 0 &&
+      length(azurerm_role_assignment.dspm_sql_scan_instance_operator) == 0 &&
+      length(azurerm_role_assignment.dspm_sql_scan_network) == 0 &&
+      length(azurerm_role_assignment.dspm_sql_network_join) == 0
+    )
+    error_message = "with the legacy disable_function_scanning = true no SQL DSPM roles may be granted, whatever upwind_feature_dspm_azure_sql_enabled says"
   }
 }
