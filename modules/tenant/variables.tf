@@ -203,7 +203,7 @@ variable "azure_orchestrator_subscription_id" {
 # This will not have any effect on cloud scanners deployed to different regions.
 # We can still deploy resources to westeurope even though we have the org-wide resource group in eastus.
 variable "azure_cloudscanner_location" {
-  description = "The region where the org-wide resource group will be deployed."
+  description = "The region where the org-wide resource group will be deployed. Also the location of the Azure SQL MI DSPM resource group when it is first created (later changes are ignored for that group: its scan instances are created per scanned region regardless)."
   type        = string
   default     = "westus"
 }
@@ -265,6 +265,12 @@ variable "dspm_storage_accounts" {
     )
     error_message = "dspm_storage_accounts and its deprecated alias function_storage_accounts are both set with different values. Set only dspm_storage_accounts."
   }
+}
+
+variable "upwind_feature_dspm_azure_sql_enabled" {
+  description = "Opt-in for Upwind DSPM scanning of Azure SQL Managed Instances. Also requires upwind_feature_dspm_enabled (the DSPM opt-out wins). When true, the orchestrator subscription gets one resource group (upwind-cs-sqlmi-rg-<orgId>) for the scan instances and everything the executor creates around them, and the restore executor's custom roles (Scan Instance Operator and Scan Network, plus worker network join in Outpost). The executor creates each region's scan instance network and the instance itself on the first scan there. The roles go to the onboarding service principal in Outpost (requires CloudScanner to be enabled) and to the Snapshot app's service principal in SaaS. Role assignments can take more than 25 minutes to take effect after apply, so the first scan after a change may report permission errors until they do. Offboarding: remove the scanners/org in Upwind first, which discards the scan instances and their associated resources while the roles still exist, then run terraform destroy, which deletes the then-empty resource group. If destroy has to delete resources itself, the azurerm provider needs features { resource_group { prevent_deletion_if_contains_resources = false } }, and it may need a retry: Azure holds a managed instance subnet for up to about 90 minutes after the last instance in it is removed. Outpost: if the CloudScanner worker's VNet uses custom DNS servers instead of Azure DNS, they must forward the privatelink.*.database.windows.net zones to Azure DNS (168.63.129.16)."
+  type        = bool
+  default     = false
 }
 
 # endregion azure
