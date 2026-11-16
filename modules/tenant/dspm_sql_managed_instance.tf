@@ -385,6 +385,13 @@ locals {
   ]
 }
 
+# Also the provisioning signal for Azure SQL MI DSPM: it exists, in both modes,
+# exactly when the SQL roles were granted, and Upwind detects it in the
+# role-definition inventory by its name prefix, UpwindDSPMSQLMIBackupReader-{orgID}
+# (no Microsoft Graph access needed). Unlike storage DSPM, whose grant is a
+# built-in role and so needs the separate UpwindDSPMEnabled marker, this role's
+# own name is org-specific. The prefix is a contract with that detection: a
+# rename must move on both sides together.
 resource "azurerm_role_definition" "dspm_sql_managed_instance_backup_reader" {
   for_each          = local.dspm_sql_managed_instance_backup_reader_definitions
   name              = "UpwindDSPMSQLMIBackupReader-${local.resource_suffix}-${split("/", each.key)[length(split("/", each.key)) - 1]}"
