@@ -1,4 +1,4 @@
-# region DSPM: Azure SQL Managed Instance, orchestrator side (Account B)
+# region DSPM: Azure SQL Managed Instance
 #
 # Azure SQL MI DSPM never connects to the customer's production instance. A
 # point-in-time restore copies each database into an Upwind-owned scan managed
@@ -8,15 +8,16 @@
 # Permissions / Networking / Onboarding Terraform.
 #
 # This file provisions only what has to exist before the first scan:
-#   * one resource group, upwind-cs-sqlmi-rg-<orgId>, for the scan instances and
-#     everything the executor creates around them;
-#   * the custom roles the restore executor needs, and their assignments.
+#   * orchestrator side (Account B): one resource group,
+#     upwind-cs-sqlmi-rg-<orgId>, for the scan instances and everything the
+#     executor creates around them, and the executor's custom roles on it;
+#   * source side (Account A): a read-only role on each source managed instance
+#     listed in dspm_sql_managed_instances, so the executor can restore from its
+#     backups.
 # Everything else is created by the executor on the first scan in a region: the
 # scan instance's VNet, delegated subnet, NSG and route table, the instance
 # itself, and (Outpost) its private endpoint and private DNS zone. So no list of
 # regions is needed here: the network follows the regions actually scanned.
-# The source side (Account A: read-only access to each source instance's
-# backups) is granted separately.
 #
 # Identity: the restore executor runs outside the customer's tenant in both
 # modes, so it signs in as a principal Upwind can already authenticate as from
@@ -316,6 +317,77 @@ resource "azurerm_role_assignment" "dspm_sql_managed_instance_network_join" {
   principal_id       = local.dspm_sql_managed_instance_principal_id
   scope              = local.orchestrator_subscription_scope
   depends_on         = [time_sleep.dspm_sql_managed_instance_role_definition_wait[0]]
+}
+
+# endregion
+
+# region Source side (Account A)
+#
+# A cross-subscription point-in-time restore is a single call on the scan
+# instance in B, but ARM checks both crossSubscriptionPITR/action on the scan
+# instance (Scan Instance Operator) and readBackups/action on the source database
+# (this role), so the same principal must hold both. Read-only: nothing here can
+# change or delete the customer's instance. Assigned per listed instance, not per
+# subscription: an instance added later isn't scanned until it's added to
+# dspm_sql_managed_instances and the module is re-applied. Key access for sources
+# on a customer-managed TDE key is not granted here: the grant goes to the scan
+# instance's identity, which only exists once the executor has created it.
+
+locals {
+  dspm_sql_managed_instances = local.dspm_sql_managed_instance_enabled ? toset(var.dspm_sql_managed_instances) : toset([])
+
+  # A custom role can't list individual resources as assignable scopes, so the
+  # role is assignable in each listed instance's subscription (plus the
+  # orchestrator subscription, where it is defined, so the definition's scope
+  # never depends on the list's order) and assigned on each instance only.
+  dspm_sql_managed_instance_backup_reader_assignable_scopes = sort(distinct(concat(
+    [local.orchestrator_subscription_scope],
+    [for id in local.dspm_sql_managed_instances : "/subscriptions/${split("/", id)[2]}"],
+  )))
+
+  # Upwind DSPM SQL MI Backup Reader.
+  dspm_sql_managed_instance_backup_reader_actions = [
+    # Check the source instance exists and is ready.
+    "Microsoft.Sql/managedInstances/read",
+    # List its databases and each one's earliest restore point.
+    "Microsoft.Sql/managedInstances/databases/read",
+    # Use the database's backups as the source of a cross-subscription restore.
+    "Microsoft.Sql/managedInstances/databases/readBackups/action",
+    # Detect a customer-managed TDE key, and which one, before restoring.
+    "Microsoft.Sql/managedInstances/encryptionProtector/read",
+  ]
+}
+
+resource "azurerm_role_definition" "dspm_sql_managed_instance_backup_reader" {
+  count             = length(local.dspm_sql_managed_instances) > 0 ? 1 : 0
+  name              = "UpwindDSPMSQLMIBackupReader-${local.resource_suffix}"
+  description       = "Upwind DSPM: read an Azure SQL managed instance and its databases, and use their backups as the source of a point-in-time restore onto Upwind's scan instance. Read-only."
+  scope             = local.orchestrator_subscription_scope
+  assignable_scopes = local.dspm_sql_managed_instance_backup_reader_assignable_scopes
+
+  permissions {
+    actions     = local.dspm_sql_managed_instance_backup_reader_actions
+    not_actions = []
+  }
+}
+
+# Its own wait, re-run whenever the assignable scopes change (an instance in a
+# new subscription), so assignments in that subscription wait for propagation.
+resource "time_sleep" "dspm_sql_managed_instance_backup_reader_wait" {
+  count           = length(local.dspm_sql_managed_instances) > 0 ? 1 : 0
+  depends_on      = [azurerm_role_definition.dspm_sql_managed_instance_backup_reader]
+  create_duration = var.azure_role_definition_wait_time
+  triggers = {
+    assignable_scopes = join(",", local.dspm_sql_managed_instance_backup_reader_assignable_scopes)
+  }
+}
+
+resource "azurerm_role_assignment" "dspm_sql_managed_instance_backup_reader" {
+  for_each           = local.dspm_sql_managed_instances
+  role_definition_id = azurerm_role_definition.dspm_sql_managed_instance_backup_reader[0].role_definition_resource_id
+  principal_id       = local.dspm_sql_managed_instance_principal_id
+  scope              = each.value
+  depends_on         = [time_sleep.dspm_sql_managed_instance_backup_reader_wait[0]]
 }
 
 # endregion
