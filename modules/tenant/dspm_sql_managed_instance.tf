@@ -344,8 +344,14 @@ resource "azurerm_role_assignment" "dspm_sql_managed_instance_network_join" {
 # executor has created it.
 
 locals {
-  dspm_sql_managed_instance_backup_reader_allowlist = local.dspm_sql_managed_instance_enabled ? toset(var.dspm_sql_managed_instances) : toset([])
-  dspm_sql_managed_instance_backup_reader_broad     = local.dspm_sql_managed_instance_enabled && length(var.dspm_sql_managed_instances) == 0
+  # Listed instances, de-duplicated case-insensitively (ARM IDs are
+  # case-insensitive, and two spellings of one instance would be two
+  # assignments on the same scope, the second failing with RoleAssignmentExists),
+  # keeping the first spelling given.
+  dspm_sql_managed_instance_backup_reader_allowlist = local.dspm_sql_managed_instance_enabled ? toset([
+    for spellings in { for id in var.dspm_sql_managed_instances : lower(id) => id... } : spellings[0]
+  ]) : toset([])
+  dspm_sql_managed_instance_backup_reader_broad = local.dspm_sql_managed_instance_enabled && length(var.dspm_sql_managed_instances) == 0
 
   # Role definitions, keyed by the scope they're defined at.
   #   * Broad: one per CloudScanner scope, assignable there (as for
@@ -360,16 +366,22 @@ locals {
     } : length(local.dspm_sql_managed_instance_backup_reader_allowlist) > 0 ? {
     (local.orchestrator_subscription_scope) = sort(distinct(concat(
       [local.orchestrator_subscription_scope],
-      [for id in local.dspm_sql_managed_instance_backup_reader_allowlist : "/subscriptions/${split("/", id)[2]}"],
+      # Lower case, as Azure returns them, so a GUID given in upper case doesn't
+      # show as a change on every plan.
+      [for id in local.dspm_sql_managed_instance_backup_reader_allowlist : "/subscriptions/${lower(split("/", id)[2])}"],
     )))
   } : {}
 
   # Role assignments, keyed by the scope they're assigned at, with the
-  # definition each one uses.
+  # definition each one uses and, for the allowlist, the subscription its role
+  # ID must be built under (see the assignment below).
   dspm_sql_managed_instance_backup_reader_assignments = local.dspm_sql_managed_instance_backup_reader_broad ? {
-    for scope in toset(local.cloudscanner_scopes) : scope => scope
+    for scope in toset(local.cloudscanner_scopes) : scope => { definition = scope, subscription = null }
     } : {
-    for id in local.dspm_sql_managed_instance_backup_reader_allowlist : id => local.orchestrator_subscription_scope
+    for id in local.dspm_sql_managed_instance_backup_reader_allowlist : id => {
+      definition   = local.orchestrator_subscription_scope
+      subscription = lower(split("/", id)[2])
+    }
   }
 
   # Upwind DSPM SQL MI Backup Reader.
@@ -418,11 +430,18 @@ resource "time_sleep" "dspm_sql_managed_instance_backup_reader_wait" {
 }
 
 resource "azurerm_role_assignment" "dspm_sql_managed_instance_backup_reader" {
-  for_each           = local.dspm_sql_managed_instance_backup_reader_assignments
-  role_definition_id = azurerm_role_definition.dspm_sql_managed_instance_backup_reader[each.value].role_definition_resource_id
-  principal_id       = local.dspm_sql_managed_instance_principal_id
-  scope              = each.key
-  depends_on         = [time_sleep.dspm_sql_managed_instance_backup_reader_wait[0]]
+  for_each = local.dspm_sql_managed_instance_backup_reader_assignments
+  # An allowlist assignment refers to the role under the instance's own
+  # subscription: the role is defined in the orchestrator subscription, but
+  # Azure resolves an assignment's role ID in the subscription it's assigned in.
+  role_definition_id = each.value.subscription == null ? (
+    azurerm_role_definition.dspm_sql_managed_instance_backup_reader[each.value.definition].role_definition_resource_id
+    ) : (
+    "/subscriptions/${each.value.subscription}/providers/Microsoft.Authorization/roleDefinitions/${azurerm_role_definition.dspm_sql_managed_instance_backup_reader[each.value.definition].role_definition_id}"
+  )
+  principal_id = local.dspm_sql_managed_instance_principal_id
+  scope        = each.key
+  depends_on   = [time_sleep.dspm_sql_managed_instance_backup_reader_wait[0]]
 }
 
 # endregion

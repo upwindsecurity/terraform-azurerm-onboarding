@@ -426,6 +426,46 @@ run "backup_reader_allowlist_is_per_instance" {
   }
 }
 
+run "backup_reader_allowlist_role_id_and_case" {
+  command = plan
+  variables {
+    azure_application_client_id                            = "00000000-0000-0000-0000-0000000000c1"
+    azure_application_client_secret                        = "existing-app-secret-value"
+    azure_application_service_principal_object_id          = "00000000-0000-0000-0000-0000000000c2"
+    upwind_feature_dspm_azure_sql_managed_instance_enabled = true
+    dspm_sql_managed_instances = [
+      "/subscriptions/AAAAAAAA-1111-1111-1111-111111111111/resourceGroups/rg-data/providers/Microsoft.Sql/managedInstances/sales-mi",
+      "/subscriptions/aaaaaaaa-1111-1111-1111-111111111111/resourcegroups/RG-DATA/providers/microsoft.sql/managedinstances/SALES-MI",
+    ]
+  }
+
+  override_resource {
+    target          = azurerm_role_definition.dspm_sql_managed_instance_backup_reader
+    override_during = plan
+    values = {
+      role_definition_id = "99999999-9999-9999-9999-999999999999"
+    }
+  }
+
+  assert {
+    condition = keys(azurerm_role_assignment.dspm_sql_managed_instance_backup_reader) == [
+      "/subscriptions/AAAAAAAA-1111-1111-1111-111111111111/resourceGroups/rg-data/providers/Microsoft.Sql/managedInstances/sales-mi",
+    ]
+    error_message = "the same instance listed twice in different case must give one assignment, on the first spelling"
+  }
+  assert {
+    condition = toset(azurerm_role_definition.dspm_sql_managed_instance_backup_reader["/subscriptions/00000000-0000-0000-0000-000000000000"].assignable_scopes) == toset([
+      "/subscriptions/00000000-0000-0000-0000-000000000000",
+      "/subscriptions/aaaaaaaa-1111-1111-1111-111111111111",
+    ])
+    error_message = "assignable scopes must use lower-case subscription IDs, as Azure returns them"
+  }
+  assert {
+    condition     = azurerm_role_assignment.dspm_sql_managed_instance_backup_reader["/subscriptions/AAAAAAAA-1111-1111-1111-111111111111/resourceGroups/rg-data/providers/Microsoft.Sql/managedInstances/sales-mi"].role_definition_id == "/subscriptions/aaaaaaaa-1111-1111-1111-111111111111/providers/Microsoft.Authorization/roleDefinitions/99999999-9999-9999-9999-999999999999"
+    error_message = "an allowlist assignment must refer to the role under the instance's own subscription, not the orchestrator subscription it is defined in"
+  }
+}
+
 run "saas_backup_reader_goes_to_snapshot_sp" {
   command = plan
   variables {
