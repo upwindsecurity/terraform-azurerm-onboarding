@@ -56,18 +56,18 @@ locals {
   # disable_function_scanning), so a customer who turned DSPM off by either
   # control gets no SQL DSPM roles. Outpost also needs CloudScanner: without it
   # there is no worker to scan the copies (see the check block below).
-  dspm_azure_sql_requested = var.upwind_feature_dspm_azure_sql_enabled && local.dspm_enabled
-  dspm_azure_sql_enabled   = local.dspm_azure_sql_requested && (var.saas_enabled || local.cloudscanner_enabled)
-  dspm_azure_sql_outpost   = local.dspm_azure_sql_enabled && !var.saas_enabled
+  dspm_sql_managed_instance_requested = var.upwind_feature_dspm_azure_sql_managed_instance_enabled && local.dspm_enabled
+  dspm_sql_managed_instance_enabled   = local.dspm_sql_managed_instance_requested && (var.saas_enabled || local.cloudscanner_enabled)
+  dspm_sql_managed_instance_outpost   = local.dspm_sql_managed_instance_enabled && !var.saas_enabled
 
   # Principal holding the orchestrator-side roles.
-  dspm_azure_sql_principal_id = local.dspm_azure_sql_enabled ? (
+  dspm_sql_managed_instance_principal_id = local.dspm_sql_managed_instance_enabled ? (
     var.saas_enabled ? local.saas_snapshot_sp_object_id : local.service_principal_object_id
   ) : null
 
   # Upwind DSPM Scan Instance Operator, on the scan RG only. Its Microsoft.Sql
   # actions only reach the scan instances in it, never the network.
-  dspm_azure_sql_scan_instance_operator_actions = [
+  dspm_sql_managed_instance_scan_instance_operator_actions = [
     "Microsoft.Sql/managedInstances/read",
     "Microsoft.Sql/managedInstances/write",
     "Microsoft.Sql/managedInstances/start/action",
@@ -102,7 +102,7 @@ locals {
   # Microsoft.Network actions never reach the instances. Kept as a separate role
   # from the operator so each set of actions says what it's for, and so SaaS can
   # leave out the private endpoint and DNS actions.
-  dspm_azure_sql_scan_network_actions = [
+  dspm_sql_managed_instance_scan_network_actions = [
     # The Azure CLI reads the RG before creating a private DNS zone.
     "Microsoft.Resources/subscriptions/resourceGroups/read",
     "Microsoft.Network/virtualNetworks/read",
@@ -126,7 +126,7 @@ locals {
   # Outpost only: the private endpoint and its DNS are in the customer's tenant
   # (in SaaS they are in Upwind's subscription C, so these are not granted).
   # Deletes are for offboarding.
-  dspm_azure_sql_scan_network_private_endpoint_actions = [
+  dspm_sql_managed_instance_scan_network_private_endpoint_actions = [
     "Microsoft.Network/privateEndpoints/read",
     "Microsoft.Network/privateEndpoints/write",
     "Microsoft.Network/privateEndpoints/delete",
@@ -148,7 +148,7 @@ locals {
   # are created per scanner by the CloudScanner deployment in its own RG, unknown
   # at onboarding, so this is assigned on the orchestrator subscription. The role
   # itself only joins; see "Effective access in Outpost" above.
-  dspm_azure_sql_network_join_actions = [
+  dspm_sql_managed_instance_network_join_actions = [
     "Microsoft.Network/virtualNetworks/subnets/join/action",
     "Microsoft.Network/virtualNetworks/join/action",
   ]
@@ -156,10 +156,10 @@ locals {
 
 # Outpost without CloudScanner gets nothing (no worker to scan the copies). Warn
 # rather than silently creating nothing.
-check "dspm_azure_sql_needs_cloudscanner" {
+check "dspm_sql_managed_instance_needs_cloudscanner" {
   assert {
-    condition     = !local.dspm_azure_sql_requested || var.saas_enabled || local.cloudscanner_enabled
-    error_message = "upwind_feature_dspm_azure_sql_enabled is true, but CloudScanner isn't enabled (set scanner_client_id, or key_vault_private_network), so no Azure SQL MI DSPM resources were created: without CloudScanner there is no worker to scan the restored copies."
+    condition     = !local.dspm_sql_managed_instance_requested || var.saas_enabled || local.cloudscanner_enabled
+    error_message = "upwind_feature_dspm_azure_sql_managed_instance_enabled is true, but CloudScanner isn't enabled (set scanner_client_id, or key_vault_private_network), so no Azure SQL MI DSPM resources were created: without CloudScanner there is no worker to scan the restored copies."
   }
 }
 
@@ -170,8 +170,8 @@ check "dspm_azure_sql_needs_cloudscanner" {
 # Upwind's offboarding. If destroy has to delete them itself, Azure holds a
 # managed instance subnet for up to ~90 minutes after the last instance in it is
 # removed (virtual cluster teardown), so deleting this RG may need a retry.
-resource "azurerm_resource_group" "dspm_sql" {
-  count    = local.dspm_azure_sql_enabled ? 1 : 0
+resource "azurerm_resource_group" "dspm_sql_managed_instance" {
+  count    = local.dspm_sql_managed_instance_enabled ? 1 : 0
   name     = "upwind-cs-sqlmi-rg-${var.upwind_organization_id}"
   location = var.azure_cloudscanner_location
   tags     = var.tags
@@ -188,77 +188,77 @@ resource "azurerm_resource_group" "dspm_sql" {
 
 # region Roles
 
-resource "azurerm_role_definition" "dspm_sql_scan_instance_operator" {
-  count       = local.dspm_azure_sql_enabled ? 1 : 0
-  name        = "UpwindDSPMScanInstanceOperator-${local.resource_suffix}"
+resource "azurerm_role_definition" "dspm_sql_managed_instance_scan_instance_operator" {
+  count       = local.dspm_sql_managed_instance_enabled ? 1 : 0
+  name        = "UpwindDSPMSQLMIScanInstanceOperator-${local.resource_suffix}"
   description = "Upwind DSPM: create, start, stop and (on offboarding) delete the Azure SQL scan managed instance, restore point-in-time copies onto it and drop them."
-  scope       = azurerm_resource_group.dspm_sql[0].id
+  scope       = azurerm_resource_group.dspm_sql_managed_instance[0].id
 
   permissions {
-    actions     = local.dspm_azure_sql_scan_instance_operator_actions
+    actions     = local.dspm_sql_managed_instance_scan_instance_operator_actions
     not_actions = []
   }
 }
 
-resource "azurerm_role_definition" "dspm_sql_scan_network" {
-  count       = local.dspm_azure_sql_enabled ? 1 : 0
-  name        = "UpwindDSPMScanNetwork-${local.resource_suffix}"
-  description = "Upwind DSPM: build the Azure SQL scan instance network (VNet, delegated subnet, NSG, route table)${local.dspm_azure_sql_outpost ? " and its private endpoints and private DNS zones" : ""}, and delete them on offboarding."
-  scope       = azurerm_resource_group.dspm_sql[0].id
+resource "azurerm_role_definition" "dspm_sql_managed_instance_scan_network" {
+  count       = local.dspm_sql_managed_instance_enabled ? 1 : 0
+  name        = "UpwindDSPMSQLMIScanNetwork-${local.resource_suffix}"
+  description = "Upwind DSPM: build the Azure SQL scan instance network (VNet, delegated subnet, NSG, route table)${local.dspm_sql_managed_instance_outpost ? " and its private endpoints and private DNS zones" : ""}, and delete them on offboarding."
+  scope       = azurerm_resource_group.dspm_sql_managed_instance[0].id
 
   permissions {
     actions = concat(
-      local.dspm_azure_sql_scan_network_actions,
-      local.dspm_azure_sql_outpost ? local.dspm_azure_sql_scan_network_private_endpoint_actions : [],
+      local.dspm_sql_managed_instance_scan_network_actions,
+      local.dspm_sql_managed_instance_outpost ? local.dspm_sql_managed_instance_scan_network_private_endpoint_actions : [],
     )
     not_actions = []
   }
 }
 
-resource "azurerm_role_definition" "dspm_sql_network_join" {
-  count       = local.dspm_azure_sql_outpost ? 1 : 0
-  name        = "UpwindDSPMNetworkJoin-${local.resource_suffix}"
+resource "azurerm_role_definition" "dspm_sql_managed_instance_network_join" {
+  count       = local.dspm_sql_managed_instance_outpost ? 1 : 0
+  name        = "UpwindDSPMSQLMINetworkJoin-${local.resource_suffix}"
   description = "Upwind DSPM: join the CloudScanner worker's subnet and VNet for the scan instance's private endpoint and DNS link. Join only."
   scope       = local.orchestrator_subscription_scope
 
   permissions {
-    actions     = local.dspm_azure_sql_network_join_actions
+    actions     = local.dspm_sql_managed_instance_network_join_actions
     not_actions = []
   }
 }
 
-resource "time_sleep" "dspm_sql_role_definition_wait" {
-  count = local.dspm_azure_sql_enabled ? 1 : 0
+resource "time_sleep" "dspm_sql_managed_instance_role_definition_wait" {
+  count = local.dspm_sql_managed_instance_enabled ? 1 : 0
   depends_on = [
-    azurerm_role_definition.dspm_sql_scan_instance_operator,
-    azurerm_role_definition.dspm_sql_scan_network,
-    azurerm_role_definition.dspm_sql_network_join,
+    azurerm_role_definition.dspm_sql_managed_instance_scan_instance_operator,
+    azurerm_role_definition.dspm_sql_managed_instance_scan_network,
+    azurerm_role_definition.dspm_sql_managed_instance_network_join,
   ]
   create_duration = var.azure_role_definition_wait_time
 }
 
-resource "azurerm_role_assignment" "dspm_sql_scan_instance_operator" {
-  count              = local.dspm_azure_sql_enabled ? 1 : 0
-  role_definition_id = azurerm_role_definition.dspm_sql_scan_instance_operator[0].role_definition_resource_id
-  principal_id       = local.dspm_azure_sql_principal_id
-  scope              = azurerm_resource_group.dspm_sql[0].id
-  depends_on         = [time_sleep.dspm_sql_role_definition_wait[0]]
+resource "azurerm_role_assignment" "dspm_sql_managed_instance_scan_instance_operator" {
+  count              = local.dspm_sql_managed_instance_enabled ? 1 : 0
+  role_definition_id = azurerm_role_definition.dspm_sql_managed_instance_scan_instance_operator[0].role_definition_resource_id
+  principal_id       = local.dspm_sql_managed_instance_principal_id
+  scope              = azurerm_resource_group.dspm_sql_managed_instance[0].id
+  depends_on         = [time_sleep.dspm_sql_managed_instance_role_definition_wait[0]]
 }
 
-resource "azurerm_role_assignment" "dspm_sql_scan_network" {
-  count              = local.dspm_azure_sql_enabled ? 1 : 0
-  role_definition_id = azurerm_role_definition.dspm_sql_scan_network[0].role_definition_resource_id
-  principal_id       = local.dspm_azure_sql_principal_id
-  scope              = azurerm_resource_group.dspm_sql[0].id
-  depends_on         = [time_sleep.dspm_sql_role_definition_wait[0]]
+resource "azurerm_role_assignment" "dspm_sql_managed_instance_scan_network" {
+  count              = local.dspm_sql_managed_instance_enabled ? 1 : 0
+  role_definition_id = azurerm_role_definition.dspm_sql_managed_instance_scan_network[0].role_definition_resource_id
+  principal_id       = local.dspm_sql_managed_instance_principal_id
+  scope              = azurerm_resource_group.dspm_sql_managed_instance[0].id
+  depends_on         = [time_sleep.dspm_sql_managed_instance_role_definition_wait[0]]
 }
 
-resource "azurerm_role_assignment" "dspm_sql_network_join" {
-  count              = local.dspm_azure_sql_outpost ? 1 : 0
-  role_definition_id = azurerm_role_definition.dspm_sql_network_join[0].role_definition_resource_id
-  principal_id       = local.dspm_azure_sql_principal_id
+resource "azurerm_role_assignment" "dspm_sql_managed_instance_network_join" {
+  count              = local.dspm_sql_managed_instance_outpost ? 1 : 0
+  role_definition_id = azurerm_role_definition.dspm_sql_managed_instance_network_join[0].role_definition_resource_id
+  principal_id       = local.dspm_sql_managed_instance_principal_id
   scope              = local.orchestrator_subscription_scope
-  depends_on         = [time_sleep.dspm_sql_role_definition_wait[0]]
+  depends_on         = [time_sleep.dspm_sql_managed_instance_role_definition_wait[0]]
 }
 
 # endregion
