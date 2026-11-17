@@ -414,14 +414,14 @@ run "backup_reader_allowlist_is_per_instance" {
     error_message = "with an allowlist, Backup Reader is assignable in each listed instance's subscription (and the orchestrator subscription it is defined in)"
   }
   assert {
-    condition = toset(keys(azurerm_role_assignment.dspm_sql_managed_instance_backup_reader)) == toset([
+    condition = toset([for a in azurerm_role_assignment.dspm_sql_managed_instance_backup_reader : a.scope]) == toset([
       "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-data/providers/Microsoft.Sql/managedInstances/sales-mi",
       "/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/rg-hr/providers/Microsoft.Sql/managedInstances/hr-mi",
     ])
     error_message = "with an allowlist, Backup Reader is assigned on each listed instance only, not its subscription or the CloudScanner scopes"
   }
   assert {
-    condition     = alltrue([for k, a in azurerm_role_assignment.dspm_sql_managed_instance_backup_reader : a.principal_id == "00000000-0000-0000-0000-0000000000c2" && a.scope == k])
+    condition     = alltrue([for k, a in azurerm_role_assignment.dspm_sql_managed_instance_backup_reader : a.principal_id == "00000000-0000-0000-0000-0000000000c2"])
     error_message = "in Outpost Backup Reader goes to the onboarding service principal, like the orchestrator-side roles"
   }
 }
@@ -449,9 +449,13 @@ run "backup_reader_allowlist_role_id_and_case" {
 
   assert {
     condition = keys(azurerm_role_assignment.dspm_sql_managed_instance_backup_reader) == [
-      "/subscriptions/AAAAAAAA-1111-1111-1111-111111111111/resourceGroups/rg-data/providers/Microsoft.Sql/managedInstances/sales-mi",
+      "/subscriptions/aaaaaaaa-1111-1111-1111-111111111111/resourcegroups/rg-data/providers/microsoft.sql/managedinstances/sales-mi",
     ]
-    error_message = "the same instance listed twice in different case must give one assignment, on the first spelling"
+    error_message = "the same instance listed twice in different case must give one assignment, keyed by the lower-cased ID, so re-casing an entry replaces its assignment in place instead of racing a create against a destroy on the same scope"
+  }
+  assert {
+    condition     = azurerm_role_assignment.dspm_sql_managed_instance_backup_reader["/subscriptions/aaaaaaaa-1111-1111-1111-111111111111/resourcegroups/rg-data/providers/microsoft.sql/managedinstances/sales-mi"].scope == "/subscriptions/AAAAAAAA-1111-1111-1111-111111111111/resourceGroups/rg-data/providers/Microsoft.Sql/managedInstances/sales-mi"
+    error_message = "the assignment's scope keeps the first spelling given"
   }
   assert {
     condition = toset(azurerm_role_definition.dspm_sql_managed_instance_backup_reader["/subscriptions/00000000-0000-0000-0000-000000000000"].assignable_scopes) == toset([
@@ -461,7 +465,7 @@ run "backup_reader_allowlist_role_id_and_case" {
     error_message = "assignable scopes must use lower-case subscription IDs, as Azure returns them"
   }
   assert {
-    condition     = azurerm_role_assignment.dspm_sql_managed_instance_backup_reader["/subscriptions/AAAAAAAA-1111-1111-1111-111111111111/resourceGroups/rg-data/providers/Microsoft.Sql/managedInstances/sales-mi"].role_definition_id == "/subscriptions/aaaaaaaa-1111-1111-1111-111111111111/providers/Microsoft.Authorization/roleDefinitions/99999999-9999-9999-9999-999999999999"
+    condition     = azurerm_role_assignment.dspm_sql_managed_instance_backup_reader["/subscriptions/aaaaaaaa-1111-1111-1111-111111111111/resourcegroups/rg-data/providers/microsoft.sql/managedinstances/sales-mi"].role_definition_id == "/subscriptions/aaaaaaaa-1111-1111-1111-111111111111/providers/Microsoft.Authorization/roleDefinitions/99999999-9999-9999-9999-999999999999"
     error_message = "an allowlist assignment must refer to the role under the instance's own subscription, not the orchestrator subscription it is defined in"
   }
 }

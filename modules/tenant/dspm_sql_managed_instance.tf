@@ -336,7 +336,10 @@ resource "azurerm_role_assignment" "dspm_sql_managed_instance_network_join" {
 #     (tenant root, management groups, or the included/excluded subscriptions),
 #     so a managed instance created later is covered with no Terraform change;
 #     which instances are actually scanned is chosen at runtime by the scanner's
-#     capability selectors in the console;
+#     capability selectors in the console. Those selectors don't limit anything
+#     in Azure: with crossSubscriptionPITR on the scan instance, this lets the
+#     principal restore any managed instance database under those scopes into
+#     Upwind's scan instance (as the storage DSPM default lets it read any blob);
 #   * with dspm_sql_managed_instances set, on each listed instance only.
 #
 # Key access for sources on a customer-managed TDE key is not granted here: the
@@ -372,13 +375,17 @@ locals {
     )))
   } : {}
 
-  # Role assignments, keyed by the scope they're assigned at, with the
-  # definition each one uses and, for the allowlist, the subscription its role
-  # ID must be built under (see the assignment below).
+  # Role assignments, with the scope each one is assigned at, the definition it
+  # uses and, for the allowlist, the subscription its role ID must be built
+  # under (see the assignment below). Allowlist entries are keyed by the
+  # lower-cased ID: re-casing an entry then replaces its assignment in place
+  # (destroy, then create) instead of adding a new key whose create can race the
+  # old one's destroy and fail with RoleAssignmentExists on the same scope.
   dspm_sql_managed_instance_backup_reader_assignments = local.dspm_sql_managed_instance_backup_reader_broad ? {
-    for scope in toset(local.cloudscanner_scopes) : scope => { definition = scope, subscription = null }
+    for scope in toset(local.cloudscanner_scopes) : scope => { scope = scope, definition = scope, subscription = null }
     } : {
-    for id in local.dspm_sql_managed_instance_backup_reader_allowlist : id => {
+    for id in local.dspm_sql_managed_instance_backup_reader_allowlist : lower(id) => {
+      scope        = id
       definition   = local.orchestrator_subscription_scope
       subscription = lower(split("/", id)[2])
     }
@@ -440,7 +447,7 @@ resource "azurerm_role_assignment" "dspm_sql_managed_instance_backup_reader" {
     "/subscriptions/${each.value.subscription}/providers/Microsoft.Authorization/roleDefinitions/${azurerm_role_definition.dspm_sql_managed_instance_backup_reader[each.value.definition].role_definition_id}"
   )
   principal_id = local.dspm_sql_managed_instance_principal_id
-  scope        = each.key
+  scope        = each.value.scope
   depends_on   = [time_sleep.dspm_sql_managed_instance_backup_reader_wait[0]]
 }
 
