@@ -19,6 +19,33 @@ mock_provider "azurerm" {
     }
   }
 }
+mock_provider "azurerm" {
+  alias = "scan_instance_left"
+  mock_data "azurerm_subscription" {
+    defaults = {
+      subscription_id = "00000000-0000-0000-0000-000000000000"
+      tenant_id       = "00000000-0000-0000-0000-000000000002"
+    }
+  }
+  mock_data "azurerm_client_config" {
+    defaults = {
+      subscription_id = "00000000-0000-0000-0000-000000000000"
+      tenant_id       = "00000000-0000-0000-0000-000000000002"
+    }
+  }
+  mock_data "azurerm_resources" {
+    defaults = {
+      resources = [{
+        id                  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/upwind-cs-sqlmi-rg-org_test/providers/Microsoft.Sql/managedInstances/scan-westus3"
+        name                = "scan-westus3"
+        type                = "Microsoft.Sql/managedInstances"
+        location            = "westus3"
+        resource_group_name = "upwind-cs-sqlmi-rg-org_test"
+        tags                = {}
+      }]
+    }
+  }
+}
 mock_provider "azuread" {
   mock_data "azuread_client_config" {
     defaults = {
@@ -323,5 +350,72 @@ run "legacy_dspm_opt_out_wins" {
       length(azurerm_role_assignment.dspm_sql_managed_instance_network_join) == 0
     )
     error_message = "with the legacy disable_function_scanning = true no SQL DSPM roles may be granted, whatever upwind_feature_dspm_azure_sql_managed_instance_enabled says"
+  }
+}
+
+# The definition wait has triggers, so it waits again when a definition is added
+# later: here the join role, which only Outpost has (a move from SaaS to Outpost
+# adds it while the wait is already in state).
+run "role_definition_wait_tracks_every_definition" {
+  command = plan
+  variables {
+    upwind_feature_dspm_azure_sql_managed_instance_enabled = true
+  }
+  override_resource {
+    target          = azurerm_role_definition.dspm_sql_managed_instance_scan_instance_operator
+    override_during = plan
+    values          = { role_definition_id = "11111111-0000-0000-0000-000000000001" }
+  }
+  override_resource {
+    target          = azurerm_role_definition.dspm_sql_managed_instance_scan_network
+    override_during = plan
+    values          = { role_definition_id = "11111111-0000-0000-0000-000000000002" }
+  }
+  override_resource {
+    target          = azurerm_role_definition.dspm_sql_managed_instance_network_join
+    override_during = plan
+    values          = { role_definition_id = "11111111-0000-0000-0000-000000000003" }
+  }
+
+  assert {
+    condition = jsondecode(time_sleep.dspm_sql_managed_instance_role_definition_wait[0].triggers.definitions) == [
+      "11111111-0000-0000-0000-000000000001",
+      "11111111-0000-0000-0000-000000000002",
+      "11111111-0000-0000-0000-000000000003",
+    ]
+    error_message = "the definition wait must be triggered by every definition, the Outpost join role included, so adding one later waits again"
+  }
+}
+
+# Turning the feature off while the scan RG still holds a scan instance would
+# remove the roles Upwind needs to delete it: warn. (A data source inside a check
+# can't be overridden by address, so this run uses an azurerm mock that lists
+# one scan instance.)
+run "feature_off_with_scan_instance_left_warns" {
+  command = plan
+  providers = {
+    azurerm = azurerm.scan_instance_left
+    azuread = azuread
+    random  = random
+    time    = time
+    null    = null
+    http    = http
+  }
+  expect_failures = [check.dspm_sql_managed_instance_offboard_first]
+}
+
+# With the feature on, the same scan instance is expected: no warning.
+run "feature_on_with_scan_instance_does_not_warn" {
+  command = plan
+  providers = {
+    azurerm = azurerm.scan_instance_left
+    azuread = azuread
+    random  = random
+    time    = time
+    null    = null
+    http    = http
+  }
+  variables {
+    upwind_feature_dspm_azure_sql_managed_instance_enabled = true
   }
 }
