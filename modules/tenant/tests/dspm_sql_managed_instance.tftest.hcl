@@ -19,33 +19,6 @@ mock_provider "azurerm" {
     }
   }
 }
-mock_provider "azurerm" {
-  alias = "scan_instance_left"
-  mock_data "azurerm_subscription" {
-    defaults = {
-      subscription_id = "00000000-0000-0000-0000-000000000000"
-      tenant_id       = "00000000-0000-0000-0000-000000000002"
-    }
-  }
-  mock_data "azurerm_client_config" {
-    defaults = {
-      subscription_id = "00000000-0000-0000-0000-000000000000"
-      tenant_id       = "00000000-0000-0000-0000-000000000002"
-    }
-  }
-  mock_data "azurerm_resources" {
-    defaults = {
-      resources = [{
-        id                  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/upwind-cs-sqlmi-rg-org_test/providers/Microsoft.Sql/managedInstances/scan-westus3"
-        name                = "scan-westus3"
-        type                = "Microsoft.Sql/managedInstances"
-        location            = "westus3"
-        resource_group_name = "upwind-cs-sqlmi-rg-org_test"
-        tags                = {}
-      }]
-    }
-  }
-}
 mock_provider "azuread" {
   mock_data "azuread_client_config" {
     defaults = {
@@ -387,35 +360,81 @@ run "role_definition_wait_tracks_every_definition" {
   }
 }
 
-# Turning the feature off while the scan RG still holds a scan instance would
-# remove the roles Upwind needs to delete it: warn. (A data source inside a check
-# can't be overridden by address, so this run uses an azurerm mock that lists
-# one scan instance.)
+# Turning the feature off while the scan RG still holds anything removes the
+# roles Upwind needs to delete it: warn. A scan instance (billed):
 run "feature_off_with_scan_instance_left_warns" {
   command = plan
-  providers = {
-    azurerm = azurerm.scan_instance_left
-    azuread = azuread
-    random  = random
-    time    = time
-    null    = null
-    http    = http
+  override_data {
+    target = data.azurerm_resources.dspm_sql_managed_instance_scan_rg["Microsoft.Sql/managedInstances"]
+    values = {
+      resources = [{
+        id                  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/upwind-cs-sqlmi-rg-org_test/providers/Microsoft.Sql/managedInstances/scan-westus3"
+        name                = "scan-westus3"
+        type                = "Microsoft.Sql/managedInstances"
+        location            = "westus3"
+        resource_group_name = "upwind-cs-sqlmi-rg-org_test"
+        tags                = {}
+      }]
+    }
   }
   expect_failures = [check.dspm_sql_managed_instance_offboard_first]
 }
 
-# With the feature on, the same scan instance is expected: no warning.
+# Only network, left by a failed first scan or a partial offboarding: it still
+# blocks the RG delete.
+run "feature_off_with_network_left_warns" {
+  command = plan
+  override_data {
+    target = data.azurerm_resources.dspm_sql_managed_instance_scan_rg["Microsoft.Network/networkSecurityGroups"]
+    values = {
+      resources = [{
+        id                  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/upwind-cs-sqlmi-rg-org_test/providers/Microsoft.Network/networkSecurityGroups/scan-westus3-nsg"
+        name                = "scan-westus3-nsg"
+        type                = "Microsoft.Network/networkSecurityGroups"
+        location            = "westus3"
+        resource_group_name = "upwind-cs-sqlmi-rg-org_test"
+        tags                = {}
+      }]
+    }
+  }
+  expect_failures = [check.dspm_sql_managed_instance_offboard_first]
+}
+
+# With the feature on, the scan RG's contents are expected: no warning.
 run "feature_on_with_scan_instance_does_not_warn" {
   command = plan
-  providers = {
-    azurerm = azurerm.scan_instance_left
-    azuread = azuread
-    random  = random
-    time    = time
-    null    = null
-    http    = http
-  }
   variables {
     upwind_feature_dspm_azure_sql_managed_instance_enabled = true
+  }
+  override_data {
+    target = data.azurerm_resources.dspm_sql_managed_instance_scan_rg["Microsoft.Sql/managedInstances"]
+    values = {
+      resources = [{
+        id                  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/upwind-cs-sqlmi-rg-org_test/providers/Microsoft.Sql/managedInstances/scan-westus3"
+        name                = "scan-westus3"
+        type                = "Microsoft.Sql/managedInstances"
+        location            = "westus3"
+        resource_group_name = "upwind-cs-sqlmi-rg-org_test"
+        tags                = {}
+      }]
+    }
+  }
+}
+
+# Resources of the same types elsewhere in the subscription don't count.
+run "feature_off_other_rg_does_not_warn" {
+  command = plan
+  override_data {
+    target = data.azurerm_resources.dspm_sql_managed_instance_scan_rg["Microsoft.Network/virtualNetworks"]
+    values = {
+      resources = [{
+        id                  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/customer-network-rg/providers/Microsoft.Network/virtualNetworks/hub-vnet"
+        name                = "hub-vnet"
+        type                = "Microsoft.Network/virtualNetworks"
+        location            = "westus3"
+        resource_group_name = "customer-network-rg"
+        tags                = {}
+      }]
+    }
   }
 }

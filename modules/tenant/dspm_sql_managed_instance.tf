@@ -44,8 +44,8 @@
 # network) with this same principal, while the roles still exist. That is why
 # the roles can delete them: the RG only ever holds Upwind's own resources. The
 # RG itself stays with Terraform, so destroy finds it empty. The order matters:
-# turning the feature off first removes the roles and strands the instance (see
-# the dspm_sql_managed_instance_offboard_first check).
+# turning the feature off first removes the roles and strands whatever is still
+# in the RG (see the dspm_sql_managed_instance_offboard_first check).
 #
 # Deliberately NOT granted: privateEndpointConnectionsApproval/action and the
 # managedInstances/*/action wildcard it would need (the executor creates the
@@ -166,22 +166,48 @@ check "dspm_sql_managed_instance_needs_cloudscanner" {
 }
 
 # Turning the feature off removes the executor's roles before Terraform tries
-# to delete the RG, so a scan instance still in it would be stranded: the RG
-# delete fails (prevent_deletion_if_contains_resources) and Upwind can no longer
-# remove the instance. Warn while the feature is off and the RG still holds a
-# scan instance. Lists by type across the orchestrator subscription rather than
-# by RG name, because a lookup of an RG that doesn't exist fails.
-check "dspm_sql_managed_instance_offboard_first" {
-  data "azurerm_resources" "dspm_sql_managed_instance_scan_instances" {
-    type = "Microsoft.Sql/managedInstances"
-  }
+# to delete the RG, so anything still in it is stranded: the RG delete fails
+# (prevent_deletion_if_contains_resources) and Upwind can no longer remove it. A
+# scan instance keeps billing; network left by a failed first scan or a partial
+# offboarding blocks the delete too. Warn while the feature is off and the RG
+# isn't empty. terraform destroy doesn't run check blocks, so there is no warning
+# on destroy (see the module README).
+#
+# Lists each type that can end up in the RG (what the executor's roles can
+# create, plus the virtual cluster Azure keeps while it holds a deleted
+# instance's subnet) across the orchestrator subscription. Not by RG name, which
+# fails for an RG that doesn't exist (every plan where the feature was never
+# on), and not the whole subscription, which would page through every resource
+# in it on every plan. Top-level rather than inside the check, which allows only
+# one data source and no for_each.
+locals {
+  dspm_sql_managed_instance_scan_rg_name = "upwind-cs-sqlmi-rg-${var.upwind_organization_id}"
+  dspm_sql_managed_instance_scan_rg_types = toset([
+    "Microsoft.Sql/managedInstances",
+    "Microsoft.Sql/virtualClusters",
+    "Microsoft.Network/virtualNetworks",
+    "Microsoft.Network/networkSecurityGroups",
+    "Microsoft.Network/routeTables",
+    "Microsoft.Network/privateEndpoints",
+    "Microsoft.Network/privateDnsZones",
+  ])
+  dspm_sql_managed_instance_scan_rg_contents = sort(flatten([
+    for type, found in data.azurerm_resources.dspm_sql_managed_instance_scan_rg : [
+      for r in found.resources : "${type}/${r.name}"
+      if lower(split("/", r.id)[4]) == lower(local.dspm_sql_managed_instance_scan_rg_name)
+    ]
+  ]))
+}
 
+data "azurerm_resources" "dspm_sql_managed_instance_scan_rg" {
+  for_each = local.dspm_sql_managed_instance_scan_rg_types
+  type     = each.value
+}
+
+check "dspm_sql_managed_instance_offboard_first" {
   assert {
-    condition = local.dspm_sql_managed_instance_enabled || length([
-      for r in data.azurerm_resources.dspm_sql_managed_instance_scan_instances.resources : r
-      if lower(split("/", r.id)[4]) == lower("upwind-cs-sqlmi-rg-${var.upwind_organization_id}")
-    ]) == 0
-    error_message = "Azure SQL MI DSPM is off, but upwind-cs-sqlmi-rg-${var.upwind_organization_id} still holds a scan managed instance. Applying removes the roles Upwind needs to delete it, and the instance keeps billing. Keep the feature on (upwind_feature_dspm_azure_sql_managed_instance_enabled, with DSPM enabled) until the scanners/org are offboarded in Upwind, which empties the RG, then turn it off. If the roles are already gone, either turn the feature back on and offboard in Upwind, or delete the RG yourself."
+    condition     = local.dspm_sql_managed_instance_enabled || length(local.dspm_sql_managed_instance_scan_rg_contents) == 0
+    error_message = "Azure SQL MI DSPM is off, but ${local.dspm_sql_managed_instance_scan_rg_name} still holds: ${join(", ", local.dspm_sql_managed_instance_scan_rg_contents)}. Applying removes the roles Upwind needs to delete them, the resource group delete then fails, and a scan instance keeps billing. Keep the feature on (upwind_feature_dspm_azure_sql_managed_instance_enabled, with DSPM enabled) until the scanners/org are offboarded in Upwind, which empties the RG, then turn it off. If the roles are already gone, either turn the feature back on and offboard in Upwind, or delete the RG yourself."
   }
 }
 
