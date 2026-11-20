@@ -203,19 +203,19 @@ variable "azure_orchestrator_subscription_id" {
 # This will not have any effect on cloud scanners deployed to different regions.
 # We can still deploy resources to westeurope even though we have the org-wide resource group in eastus.
 variable "azure_cloudscanner_location" {
-  description = "The region where the org-wide resource group will be deployed."
+  description = "The region where the org-wide resource group will be deployed. Also the location of the Azure SQL MI DSPM resource group when it is first created (later changes are ignored for that group: its scan instances are created per scanned region regardless)."
   type        = string
   default     = "westus"
 }
 
 variable "disable_function_scanning" {
-  description = "Legacy opt-out (poorly named): if true, disables the Storage Blob Data Reader / Storage File Data Privileged Reader grants that back DSPM. Retained for backwards compatibility; prefer upwind_feature_dspm_enabled to control DSPM. DSPM is enabled only when upwind_feature_dspm_enabled is true AND this is false."
+  description = "Legacy opt-out (poorly named): if true, disables the Storage Blob Data Reader / Storage File Data Privileged Reader grants that back DSPM. Retained for backwards compatibility; prefer upwind_feature_dspm_enabled to control DSPM. DSPM is enabled only when upwind_feature_dspm_enabled is true AND this is false. Setting it true also turns off Azure SQL Managed Instance DSPM (upwind_feature_dspm_azure_sql_managed_instance_enabled)."
   type        = bool
   default     = false
 }
 
 variable "upwind_feature_dspm_enabled" {
-  description = "Opt-in control for Upwind DSPM (Data Security Posture Management). When true (default), onboarding grants data-plane blob read (Storage Blob Data Reader / Storage File Data Privileged Reader) and, in SaaS mode, mints the DSPM marker role the CloudScanner feature gate detects. Setting this to false ALSO disables Azure Function scanning: Function apps store their code in an Azure storage account, and reading that code relies on the same Storage Blob Data Reader grant - so turning DSPM off removes function-code visibility too. Coexists with the legacy disable_function_scanning: DSPM (and function scanning) is provisioned only when this is true AND disable_function_scanning is false."
+  description = "Opt-in control for Upwind DSPM (Data Security Posture Management). When true (default), onboarding grants data-plane blob read (Storage Blob Data Reader / Storage File Data Privileged Reader) and, in SaaS mode, mints the DSPM marker role the CloudScanner feature gate detects. Setting this to false ALSO disables Azure Function scanning: Function apps store their code in an Azure storage account, and reading that code relies on the same Storage Blob Data Reader grant - so turning DSPM off removes function-code visibility too. Coexists with the legacy disable_function_scanning: DSPM (and function scanning) is provisioned only when this is true AND disable_function_scanning is false. Setting this to false also turns off Azure SQL Managed Instance DSPM (upwind_feature_dspm_azure_sql_managed_instance_enabled)."
   type        = bool
   default     = true
 }
@@ -265,6 +265,12 @@ variable "dspm_storage_accounts" {
     )
     error_message = "dspm_storage_accounts and its deprecated alias function_storage_accounts are both set with different values. Set only dspm_storage_accounts."
   }
+}
+
+variable "upwind_feature_dspm_azure_sql_managed_instance_enabled" {
+  description = "Opt-in for Upwind DSPM scanning of Azure SQL Managed Instances. Also requires DSPM to be enabled (upwind_feature_dspm_enabled true and the legacy disable_function_scanning false): either DSPM opt-out wins. When true, the orchestrator subscription gets one resource group (upwind-cs-sqlmi-rg-<orgId>) for the scan instances and everything the executor creates around them, and the restore executor's custom roles (Scan Instance Operator and Scan Network, plus worker network join in Outpost). The executor creates each region's scan instance network and the instance itself on the first scan there. The roles go to the onboarding service principal in Outpost (requires CloudScanner to be enabled) and to the Snapshot app's service principal in SaaS. Role assignments can take more than 25 minutes to take effect after apply, so the first scan after a change may report permission errors until they do. Offboarding: remove the scanners/org in Upwind first, which discards the scan instances and their associated resources while the roles still exist, then set this to false or run terraform destroy, which deletes the then-empty resource group. Turning this off first removes the roles Upwind needs and strands whatever is still in the RG; the plan warns when that would happen, but terraform destroy doesn't run that check, so there is no warning on destroy (see the module README). If destroy has to delete resources itself, the azurerm provider needs features { resource_group { prevent_deletion_if_contains_resources = false } }, and it may need a retry: Azure holds a managed instance subnet for up to about 90 minutes after the last instance in it is removed. Outpost: if the CloudScanner worker's VNet uses custom DNS servers instead of Azure DNS, they must forward the privatelink.*.database.windows.net zones to Azure DNS (168.63.129.16)."
+  type        = bool
+  default     = false
 }
 
 # endregion azure
