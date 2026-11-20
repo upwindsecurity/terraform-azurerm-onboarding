@@ -72,7 +72,9 @@ run "disabled_by_default_creates_nothing" {
       length(azurerm_resource_group.dspm_sql_managed_instance) == 0 &&
       length(azurerm_role_definition.dspm_sql_managed_instance_scan_instance_operator) == 0 &&
       length(azurerm_role_definition.dspm_sql_managed_instance_scan_network) == 0 &&
-      length(azurerm_role_definition.dspm_sql_managed_instance_network_join) == 0
+      length(azurerm_role_definition.dspm_sql_managed_instance_network_join) == 0 &&
+      length(azurerm_role_definition.dspm_sql_managed_instance_backup_reader) == 0 &&
+      length(azurerm_role_assignment.dspm_sql_managed_instance_backup_reader) == 0
     )
     error_message = "nothing for Azure SQL MI DSPM may be created while upwind_feature_dspm_azure_sql_managed_instance_enabled is false"
   }
@@ -263,6 +265,7 @@ run "enabled_without_cloudscanner_creates_nothing_and_warns" {
   variables {
     scanner_client_id                                      = ""
     scanner_client_secret                                  = ""
+    dspm_sql_managed_instances                             = ["/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-data/providers/Microsoft.Sql/managedInstances/sales-mi"]
     upwind_feature_dspm_azure_sql_managed_instance_enabled = true
   }
   expect_failures = [check.dspm_sql_managed_instance_needs_cloudscanner]
@@ -275,6 +278,8 @@ run "enabled_without_cloudscanner_creates_nothing_and_warns" {
       length(azurerm_role_definition.dspm_sql_managed_instance_network_join) == 0 &&
       length(azurerm_role_assignment.dspm_sql_managed_instance_scan_instance_operator) == 0 &&
       length(azurerm_role_assignment.dspm_sql_managed_instance_scan_network) == 0 &&
+      length(azurerm_role_definition.dspm_sql_managed_instance_backup_reader) == 0 &&
+      length(azurerm_role_assignment.dspm_sql_managed_instance_backup_reader) == 0 &&
       length(azurerm_role_assignment.dspm_sql_managed_instance_network_join) == 0 &&
       length(time_sleep.dspm_sql_managed_instance_role_definition_wait) == 0
     )
@@ -288,6 +293,7 @@ run "dspm_opt_out_wins" {
   command = plan
   variables {
     upwind_feature_dspm_enabled                            = false
+    dspm_sql_managed_instances                             = ["/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-data/providers/Microsoft.Sql/managedInstances/sales-mi"]
     upwind_feature_dspm_azure_sql_managed_instance_enabled = true
   }
 
@@ -299,6 +305,8 @@ run "dspm_opt_out_wins" {
       length(azurerm_role_definition.dspm_sql_managed_instance_network_join) == 0 &&
       length(azurerm_role_assignment.dspm_sql_managed_instance_scan_instance_operator) == 0 &&
       length(azurerm_role_assignment.dspm_sql_managed_instance_scan_network) == 0 &&
+      length(azurerm_role_definition.dspm_sql_managed_instance_backup_reader) == 0 &&
+      length(azurerm_role_assignment.dspm_sql_managed_instance_backup_reader) == 0 &&
       length(azurerm_role_assignment.dspm_sql_managed_instance_network_join) == 0
     )
     error_message = "with upwind_feature_dspm_enabled = false no SQL DSPM roles may be granted, whatever upwind_feature_dspm_azure_sql_managed_instance_enabled says"
@@ -309,6 +317,7 @@ run "legacy_dspm_opt_out_wins" {
   command = plan
   variables {
     disable_function_scanning                              = true
+    dspm_sql_managed_instances                             = ["/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-data/providers/Microsoft.Sql/managedInstances/sales-mi"]
     upwind_feature_dspm_azure_sql_managed_instance_enabled = true
   }
 
@@ -320,10 +329,183 @@ run "legacy_dspm_opt_out_wins" {
       length(azurerm_role_definition.dspm_sql_managed_instance_network_join) == 0 &&
       length(azurerm_role_assignment.dspm_sql_managed_instance_scan_instance_operator) == 0 &&
       length(azurerm_role_assignment.dspm_sql_managed_instance_scan_network) == 0 &&
+      length(azurerm_role_definition.dspm_sql_managed_instance_backup_reader) == 0 &&
+      length(azurerm_role_assignment.dspm_sql_managed_instance_backup_reader) == 0 &&
       length(azurerm_role_assignment.dspm_sql_managed_instance_network_join) == 0
     )
     error_message = "with the legacy disable_function_scanning = true no SQL DSPM roles may be granted, whatever upwind_feature_dspm_azure_sql_managed_instance_enabled says"
   }
+}
+
+# Source side (Account A): a read-only Backup Reader role on the customer's
+# source managed instances, for the same principal as the orchestrator-side
+# roles. By default at the CloudScanner scopes (like the storage DSPM readers),
+# so new instances need no Terraform change; with an allowlist, per instance.
+run "backup_reader_defaults_to_the_cloudscanner_scopes" {
+  command = plan
+  variables {
+    azure_application_client_id                            = "00000000-0000-0000-0000-0000000000c1"
+    azure_application_client_secret                        = "existing-app-secret-value"
+    azure_application_service_principal_object_id          = "00000000-0000-0000-0000-0000000000c2"
+    upwind_feature_dspm_azure_sql_managed_instance_enabled = true
+  }
+
+  assert {
+    condition     = keys(azurerm_role_definition.dspm_sql_managed_instance_backup_reader) == ["/providers/Microsoft.Management/managementGroups/00000000-0000-0000-0000-000000000002"]
+    error_message = "with no allowlist, Backup Reader is defined at each CloudScanner scope (here the tenant root management group)"
+  }
+  assert {
+    condition = alltrue([
+      for k, a in azurerm_role_assignment.dspm_sql_managed_instance_backup_reader :
+      a.scope == "/providers/Microsoft.Management/managementGroups/00000000-0000-0000-0000-000000000002" && a.principal_id == "00000000-0000-0000-0000-0000000000c2"
+    ]) && length(azurerm_role_assignment.dspm_sql_managed_instance_backup_reader) == 1
+    error_message = "with no allowlist, Backup Reader is assigned at the CloudScanner scope to the onboarding service principal"
+  }
+  assert {
+    condition = toset(azurerm_role_definition.dspm_sql_managed_instance_backup_reader["/providers/Microsoft.Management/managementGroups/00000000-0000-0000-0000-000000000002"].permissions[0].actions) == toset([
+      "Microsoft.Sql/managedInstances/read",
+      "Microsoft.Sql/managedInstances/databases/read",
+      "Microsoft.Sql/managedInstances/databases/readBackups/action",
+      "Microsoft.Sql/managedInstances/encryptionProtector/read",
+    ])
+    error_message = "Backup Reader must grant exactly the four read-only source actions"
+  }
+}
+
+run "backup_reader_follows_included_subscriptions" {
+  command = plan
+  variables {
+    upwind_feature_dspm_azure_sql_managed_instance_enabled = true
+    cloudscanner_include_subscriptions                     = ["11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222"]
+  }
+
+  assert {
+    condition = toset(keys(azurerm_role_assignment.dspm_sql_managed_instance_backup_reader)) == toset([
+      "/subscriptions/11111111-1111-1111-1111-111111111111",
+      "/subscriptions/22222222-2222-2222-2222-222222222222",
+    ])
+    error_message = "with no allowlist, Backup Reader follows the CloudScanner scopes, including an include-subscriptions filter"
+  }
+}
+
+run "backup_reader_allowlist_is_per_instance" {
+  command = plan
+  variables {
+    azure_application_client_id                            = "00000000-0000-0000-0000-0000000000c1"
+    azure_application_client_secret                        = "existing-app-secret-value"
+    azure_application_service_principal_object_id          = "00000000-0000-0000-0000-0000000000c2"
+    upwind_feature_dspm_azure_sql_managed_instance_enabled = true
+    dspm_sql_managed_instances = [
+      "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-data/providers/Microsoft.Sql/managedInstances/sales-mi",
+      "/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/rg-hr/providers/Microsoft.Sql/managedInstances/hr-mi",
+    ]
+  }
+
+  assert {
+    condition     = keys(azurerm_role_definition.dspm_sql_managed_instance_backup_reader) == ["/subscriptions/00000000-0000-0000-0000-000000000000"]
+    error_message = "with an allowlist, Backup Reader is defined once, in the orchestrator subscription"
+  }
+  assert {
+    condition = toset(azurerm_role_definition.dspm_sql_managed_instance_backup_reader["/subscriptions/00000000-0000-0000-0000-000000000000"].assignable_scopes) == toset([
+      "/subscriptions/00000000-0000-0000-0000-000000000000",
+      "/subscriptions/11111111-1111-1111-1111-111111111111",
+      "/subscriptions/22222222-2222-2222-2222-222222222222",
+    ])
+    error_message = "with an allowlist, Backup Reader is assignable in each listed instance's subscription (and the orchestrator subscription it is defined in)"
+  }
+  assert {
+    condition = toset([for a in azurerm_role_assignment.dspm_sql_managed_instance_backup_reader : a.scope]) == toset([
+      "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-data/providers/Microsoft.Sql/managedInstances/sales-mi",
+      "/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/rg-hr/providers/Microsoft.Sql/managedInstances/hr-mi",
+    ])
+    error_message = "with an allowlist, Backup Reader is assigned on each listed instance only, not its subscription or the CloudScanner scopes"
+  }
+  assert {
+    condition     = alltrue([for k, a in azurerm_role_assignment.dspm_sql_managed_instance_backup_reader : a.principal_id == "00000000-0000-0000-0000-0000000000c2"])
+    error_message = "in Outpost Backup Reader goes to the onboarding service principal, like the orchestrator-side roles"
+  }
+}
+
+run "backup_reader_allowlist_role_id_and_case" {
+  command = plan
+  variables {
+    azure_application_client_id                            = "00000000-0000-0000-0000-0000000000c1"
+    azure_application_client_secret                        = "existing-app-secret-value"
+    azure_application_service_principal_object_id          = "00000000-0000-0000-0000-0000000000c2"
+    upwind_feature_dspm_azure_sql_managed_instance_enabled = true
+    dspm_sql_managed_instances = [
+      "/subscriptions/AAAAAAAA-1111-1111-1111-111111111111/resourceGroups/rg-data/providers/Microsoft.Sql/managedInstances/sales-mi",
+      "/subscriptions/aaaaaaaa-1111-1111-1111-111111111111/resourcegroups/RG-DATA/providers/microsoft.sql/managedinstances/SALES-MI",
+    ]
+  }
+
+  override_resource {
+    target          = azurerm_role_definition.dspm_sql_managed_instance_backup_reader
+    override_during = plan
+    values = {
+      role_definition_id = "99999999-9999-9999-9999-999999999999"
+    }
+  }
+
+  assert {
+    condition = keys(azurerm_role_assignment.dspm_sql_managed_instance_backup_reader) == [
+      "/subscriptions/aaaaaaaa-1111-1111-1111-111111111111/resourcegroups/rg-data/providers/microsoft.sql/managedinstances/sales-mi",
+    ]
+    error_message = "the same instance listed twice in different case must give one assignment, keyed by the lower-cased ID, so re-casing an entry replaces its assignment in place instead of racing a create against a destroy on the same scope"
+  }
+  assert {
+    condition     = azurerm_role_assignment.dspm_sql_managed_instance_backup_reader["/subscriptions/aaaaaaaa-1111-1111-1111-111111111111/resourcegroups/rg-data/providers/microsoft.sql/managedinstances/sales-mi"].scope == "/subscriptions/AAAAAAAA-1111-1111-1111-111111111111/resourceGroups/rg-data/providers/Microsoft.Sql/managedInstances/sales-mi"
+    error_message = "the assignment's scope keeps the first spelling given"
+  }
+  assert {
+    condition = toset(azurerm_role_definition.dspm_sql_managed_instance_backup_reader["/subscriptions/00000000-0000-0000-0000-000000000000"].assignable_scopes) == toset([
+      "/subscriptions/00000000-0000-0000-0000-000000000000",
+      "/subscriptions/aaaaaaaa-1111-1111-1111-111111111111",
+    ])
+    error_message = "assignable scopes must use lower-case subscription IDs, as Azure returns them"
+  }
+  assert {
+    condition     = azurerm_role_assignment.dspm_sql_managed_instance_backup_reader["/subscriptions/aaaaaaaa-1111-1111-1111-111111111111/resourcegroups/rg-data/providers/microsoft.sql/managedinstances/sales-mi"].role_definition_id == "/subscriptions/aaaaaaaa-1111-1111-1111-111111111111/providers/Microsoft.Authorization/roleDefinitions/99999999-9999-9999-9999-999999999999"
+    error_message = "an allowlist assignment must refer to the role under the instance's own subscription, not the orchestrator subscription it is defined in"
+  }
+}
+
+run "saas_backup_reader_goes_to_snapshot_sp" {
+  command = plan
+  variables {
+    saas_enabled                                           = true
+    snapshot_app_service_principal_object_id               = "00000000-0000-0000-0000-00000000000a"
+    fetcher_app_service_principal_object_id                = "00000000-0000-0000-0000-00000000000b"
+    upwind_feature_dspm_azure_sql_managed_instance_enabled = true
+  }
+
+  assert {
+    condition     = azurerm_role_assignment.dspm_sql_managed_instance_backup_reader["/providers/Microsoft.Management/managementGroups/00000000-0000-0000-0000-000000000002"].principal_id == "00000000-0000-0000-0000-00000000000a"
+    error_message = "in SaaS Backup Reader goes to the Snapshot app's service principal, at the same scopes as its other scanning roles"
+  }
+}
+
+run "no_backup_reader_with_flag_off" {
+  command = plan
+  variables {
+    dspm_sql_managed_instances = ["/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-data/providers/Microsoft.Sql/managedInstances/sales-mi"]
+  }
+
+  assert {
+    condition     = length(azurerm_role_definition.dspm_sql_managed_instance_backup_reader) == 0 && length(azurerm_role_assignment.dspm_sql_managed_instance_backup_reader) == 0
+    error_message = "nothing is granted while upwind_feature_dspm_azure_sql_managed_instance_enabled is false, whatever dspm_sql_managed_instances says"
+  }
+}
+
+run "rejects_non_managed_instance_ids" {
+  command = plan
+  variables {
+    upwind_feature_dspm_azure_sql_managed_instance_enabled = true
+    dspm_sql_managed_instances = [
+      "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-data/providers/Microsoft.Sql/servers/sales-sql",
+    ]
+  }
+  expect_failures = [var.dspm_sql_managed_instances]
 }
 
 # The definition wait has triggers, so it waits again when a definition is added
