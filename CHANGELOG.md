@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.23.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.22.4...v1.23.0) (2026-11-20)
+
+### Features
+
+* **UP-12151:** provision the orchestrator side of Azure SQL MI DSPM ([#126](https://github.com/upwindsecurity/terraform-azurerm-onboarding/issues/126)) ([a1a2772](https://github.com/upwindsecurity/terraform-azurerm-onboarding/commit/a1a27723c4cff3181b31ce0441b986916e410092))
+
 ## [1.3.0](https://github.com/upwindsecurity/terraform-azurerm-onboarding/compare/v1.2.0...v1.3.0) (2025-08-22)
 
 ### Features
