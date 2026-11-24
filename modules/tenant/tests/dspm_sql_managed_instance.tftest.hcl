@@ -74,7 +74,9 @@ run "disabled_by_default_creates_nothing" {
       length(azurerm_role_definition.dspm_sql_managed_instance_scan_network) == 0 &&
       length(azurerm_role_definition.dspm_sql_managed_instance_network_join) == 0 &&
       length(azurerm_role_definition.dspm_sql_managed_instance_backup_reader) == 0 &&
-      length(azurerm_role_assignment.dspm_sql_managed_instance_backup_reader) == 0
+      length(azurerm_role_assignment.dspm_sql_managed_instance_backup_reader) == 0 &&
+      length(azurerm_user_assigned_identity.dspm_sql_managed_instance_tde) == 0 &&
+      length(azurerm_role_assignment.dspm_sql_managed_instance_tde_key_vault) == 0
     )
     error_message = "nothing for Azure SQL MI DSPM may be created while upwind_feature_dspm_azure_sql_managed_instance_enabled is false"
   }
@@ -131,7 +133,8 @@ run "scan_instance_operator_has_scan_cycle_actions" {
       for a in [
         "Microsoft.Sql/managedInstances/crossSubscriptionPITR/action",
         "Microsoft.Sql/managedInstances/privateEndpointConnections/write",
-        "Microsoft.Sql/managedInstances/keys/write",
+        "Microsoft.Sql/managedInstances/validateAzureKeyVaultEncryptionKey/action",
+        "Microsoft.ManagedIdentity/userAssignedIdentities/assign/action",
         "Microsoft.Sql/locations/*/read",
       ] : contains(azurerm_role_definition.dspm_sql_managed_instance_scan_instance_operator[0].permissions[0].actions, a)
     ])
@@ -140,6 +143,13 @@ run "scan_instance_operator_has_scan_cycle_actions" {
   assert {
     condition     = contains(azurerm_role_definition.dspm_sql_managed_instance_scan_instance_operator[0].permissions[0].actions, "Microsoft.Sql/managedInstances/delete")
     error_message = "Scan Instance Operator must let offboarding discard the scan instance"
+  }
+  assert {
+    condition = length(setintersection(
+      toset(azurerm_role_definition.dspm_sql_managed_instance_scan_instance_operator[0].permissions[0].actions),
+      toset(["Microsoft.Sql/managedInstances/keys/read", "Microsoft.Sql/managedInstances/keys/write"])
+    )) == 0
+    error_message = "keys are never registered on the scan instance (vault access is enough to restore), so no keys/read or keys/write on it"
   }
   assert {
     condition = length(setintersection(
@@ -367,8 +377,9 @@ run "backup_reader_defaults_to_the_cloudscanner_scopes" {
       "Microsoft.Sql/managedInstances/databases/read",
       "Microsoft.Sql/managedInstances/databases/readBackups/action",
       "Microsoft.Sql/managedInstances/encryptionProtector/read",
+      "Microsoft.Sql/managedInstances/keys/read",
     ])
-    error_message = "Backup Reader must grant exactly the four read-only source actions"
+    error_message = "Backup Reader must grant exactly the five read-only source actions"
   }
 }
 
@@ -620,3 +631,154 @@ run "feature_off_other_rg_does_not_warn" {
     }
   }
 }
+
+# region Customer-managed TDE keys
+
+# The scan instances' identity: always created with the feature, in the scan RG,
+# under the fixed name the executor derives from the org ID.
+run "tde_identity_in_scan_rg_with_fixed_name" {
+  command = plan
+  variables {
+    upwind_feature_dspm_azure_sql_managed_instance_enabled = true
+  }
+
+  assert {
+    condition = (
+      azurerm_user_assigned_identity.dspm_sql_managed_instance_tde[0].name == "upwind-cs-sqlmi-scan-identity-org_test" &&
+      azurerm_user_assigned_identity.dspm_sql_managed_instance_tde[0].resource_group_name == "upwind-cs-sqlmi-rg-org_test"
+    )
+    error_message = "the TDE identity is upwind-cs-sqlmi-scan-identity-<orgId> in upwind-cs-sqlmi-rg-<orgId> (the executor derives both)"
+  }
+  assert {
+    condition     = length(azurerm_role_assignment.dspm_sql_managed_instance_tde_key_vault) == 0
+    error_message = "no vaults listed, no vault grants"
+  }
+}
+
+run "saas_creates_the_tde_identity_too" {
+  command = plan
+  variables {
+    saas_enabled                                           = true
+    snapshot_app_service_principal_object_id               = "00000000-0000-0000-0000-00000000000a"
+    fetcher_app_service_principal_object_id                = "00000000-0000-0000-0000-00000000000b"
+    upwind_feature_dspm_azure_sql_managed_instance_enabled = true
+  }
+
+  assert {
+    condition     = length(azurerm_user_assigned_identity.dspm_sql_managed_instance_tde) == 1
+    error_message = "SaaS scan instances live in the customer's orchestrator subscription too, so they need the same identity"
+  }
+}
+
+# One grant per vault, at vault scope, to the identity's principal; the same
+# vault in two spellings is one grant.
+run "tde_key_vault_grants_per_vault" {
+  command = plan
+  variables {
+    upwind_feature_dspm_azure_sql_managed_instance_enabled = true
+    dspm_sql_tde_key_vault_ids = [
+      "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-keys/providers/Microsoft.KeyVault/vaults/kv-tde-1",
+      "/subscriptions/11111111-1111-1111-1111-111111111111/resourcegroups/RG-KEYS/providers/microsoft.keyvault/vaults/KV-TDE-1",
+      "/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/rg-old/providers/Microsoft.KeyVault/vaults/kv-tde-old",
+    ]
+  }
+  override_resource {
+    target          = azurerm_user_assigned_identity.dspm_sql_managed_instance_tde
+    override_during = plan
+    values          = { principal_id = "00000000-0000-0000-0000-0000000000d1" }
+  }
+
+  assert {
+    condition = toset([for a in azurerm_role_assignment.dspm_sql_managed_instance_tde_key_vault : a.scope]) == toset([
+      "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-keys/providers/Microsoft.KeyVault/vaults/kv-tde-1",
+      "/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/rg-old/providers/Microsoft.KeyVault/vaults/kv-tde-old",
+    ]) && length(azurerm_role_assignment.dspm_sql_managed_instance_tde_key_vault) == 2
+    error_message = "one grant per vault at vault scope, de-duplicated case-insensitively keeping the first spelling"
+  }
+  assert {
+    condition = alltrue([
+      for a in azurerm_role_assignment.dspm_sql_managed_instance_tde_key_vault :
+      a.role_definition_name == "Key Vault Crypto Service Encryption User" &&
+      a.principal_id == "00000000-0000-0000-0000-0000000000d1" &&
+      a.principal_type == "ServicePrincipal"
+    ])
+    error_message = "each vault grants Key Vault Crypto Service Encryption User to the TDE identity, never to the executor's principal"
+  }
+}
+
+run "no_tde_grants_with_flag_off" {
+  command = plan
+  variables {
+    dspm_sql_tde_key_vault_ids = [
+      "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-keys/providers/Microsoft.KeyVault/vaults/kv-tde-1",
+    ]
+  }
+
+  assert {
+    condition     = length(azurerm_user_assigned_identity.dspm_sql_managed_instance_tde) == 0 && length(azurerm_role_assignment.dspm_sql_managed_instance_tde_key_vault) == 0
+    error_message = "vaults listed without the feature on grant nothing"
+  }
+}
+
+run "rejects_managed_hsm" {
+  command = plan
+  variables {
+    upwind_feature_dspm_azure_sql_managed_instance_enabled = true
+    dspm_sql_tde_key_vault_ids = [
+      "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-keys/providers/Microsoft.KeyVault/managedHSMs/hsm-1",
+    ]
+  }
+  expect_failures = [var.dspm_sql_tde_key_vault_ids]
+}
+
+run "rejects_key_ids" {
+  command = plan
+  variables {
+    upwind_feature_dspm_azure_sql_managed_instance_enabled = true
+    dspm_sql_tde_key_vault_ids = [
+      "https://kv-tde-1.vault.azure.net/keys/tde/0123456789abcdef0123456789abcdef",
+    ]
+  }
+  expect_failures = [var.dspm_sql_tde_key_vault_ids]
+}
+
+# The TDE identity can unwrap the customer's keys, so whoever can attach it to
+# compute and sign in as it gets that access. The DSPM roles never add compute
+# (or any other namespace that can host code): every action is Microsoft.Sql or
+# Microsoft.Network, reading the RG, or attaching the identity, which the scan
+# instance needs. In Outpost the CloudScanner deployer role already grants
+# compute and assign/action subscription-wide (see the module comment); that is
+# outside these roles.
+run "dspm_roles_grant_no_compute" {
+  command = plan
+  variables {
+    upwind_feature_dspm_azure_sql_managed_instance_enabled = true
+  }
+
+  assert {
+    condition = alltrue([
+      for a in concat(
+        azurerm_role_definition.dspm_sql_managed_instance_scan_instance_operator[0].permissions[0].actions,
+        azurerm_role_definition.dspm_sql_managed_instance_scan_network[0].permissions[0].actions,
+        azurerm_role_definition.dspm_sql_managed_instance_network_join[0].permissions[0].actions,
+      ) :
+      startswith(a, "Microsoft.Sql/") || startswith(a, "Microsoft.Network/") ||
+      contains([
+        "Microsoft.Resources/subscriptions/resourceGroups/read",
+        "Microsoft.ManagedIdentity/userAssignedIdentities/assign/action",
+      ], a)
+    ])
+    error_message = "the DSPM orchestrator roles may only grant Microsoft.Sql, Microsoft.Network, RG read and identity assign actions: anything that can run code could sign in as the TDE identity"
+  }
+  assert {
+    condition = alltrue([
+      for a in concat(
+        azurerm_role_definition.dspm_sql_managed_instance_scan_network[0].permissions[0].actions,
+        azurerm_role_definition.dspm_sql_managed_instance_network_join[0].permissions[0].actions,
+      ) : !startswith(a, "Microsoft.ManagedIdentity/")
+    ])
+    error_message = "only the Scan Instance Operator role, on the scan RG, may attach the TDE identity"
+  }
+}
+
+# endregion
