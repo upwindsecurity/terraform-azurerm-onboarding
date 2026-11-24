@@ -140,7 +140,7 @@ variable "azure_application_owners" {
 }
 
 variable "azure_application_msgraph_roles" {
-  description = "List of Microsoft Graph API roles that should be granted to the Azure AD application. These permissions are required for platform functionality and will be applied to both new and existing applications."
+  description = "List of Microsoft Graph API roles that should be granted to the Azure AD application. Only applied when this module creates the application; admin consent must be granted separately."
   type        = list(string)
   default = [
     "User.Read.All",
