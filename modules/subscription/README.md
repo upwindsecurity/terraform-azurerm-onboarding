@@ -57,7 +57,7 @@ No modules.
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_azure_application_msgraph_roles"></a> [azure\_application\_msgraph\_roles](#input\_azure\_application\_msgraph\_roles) | List of Microsoft Graph API roles that should be granted to the Azure AD application. | `list(string)` | <pre>[<br>  "Directory.Read.All",<br>  "Policy.Read.All",<br>  "UserAuthenticationMethod.Read.All"<br>]</pre> | no |
+| <a name="input_azure_application_msgraph_roles"></a> [azure\_application\_msgraph\_roles](#input\_azure\_application\_msgraph\_roles) | List of Microsoft Graph API roles that should be granted to the Azure AD application. | `list(string)` | <pre>[<br>  "Directory.Read.All",<br>  "Policy.Read.All",<br>  "UserAuthenticationMethod.Read.All",<br>  "CustomSecAttributeAssignment.Read.All",<br>  "CustomSecAttributeDefinition.Read.All",<br>  "AuditLog.Read.All"<br>]</pre> | no |
 | <a name="input_azure_application_name_prefix"></a> [azure\_application\_name\_prefix](#input\_azure\_application\_name\_prefix) | The prefix used for the name of the Azure AD application. | `string` | `"upwindsecurity"` | no |
 | <a name="input_azure_application_owners"></a> [azure\_application\_owners](#input\_azure\_application\_owners) | List of user IDs that will be set as owners of the Azure application. Each ID should be in the form of a GUID. If this list is left empty, the owner defaults to the authenticated principal. | `list(string)` | `[]` | no |
 | <a name="input_azure_custom_role_name_prefix"></a> [azure\_custom\_role\_name\_prefix](#input\_azure\_custom\_role\_name\_prefix) | The prefix used for the name of the Azure role definition. | `string` | `"upwindsecurity"` | no |

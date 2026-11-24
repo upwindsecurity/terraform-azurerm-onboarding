@@ -85,6 +85,9 @@ variable "azure_application_msgraph_roles" {
     "Directory.Read.All",
     "Policy.Read.All",
     "UserAuthenticationMethod.Read.All",
+    "CustomSecAttributeAssignment.Read.All",
+    "CustomSecAttributeDefinition.Read.All",
+    "AuditLog.Read.All",
   ]
 }
 
