@@ -13,8 +13,8 @@ tenant, and drops it.
 
 ## What it creates in your tenant
 
-Unlike the rest of SaaS onboarding, Azure SQL MI DSPM creates resources in your tenant, because the scan instances run
-in your orchestrator subscription:
+Besides what SaaS onboarding always creates (the central snapshots resource group and Upwind's custom roles), Azure SQL
+MI DSPM creates resources in your tenant, because the scan instances run in your orchestrator subscription:
 
 - the resource group `upwind-cs-sqlmi-rg-<orgId>` and the Snapshot app's roles on it;
 - a read-only Backup Reader for the Snapshot app at the snapshot scopes;

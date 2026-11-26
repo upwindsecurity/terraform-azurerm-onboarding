@@ -39,7 +39,12 @@ recommended. Anything that can act as the identity has that access:
 - in Outpost, Upwind's onboarding service principal: its CloudScanner deployment role can create compute in the
   orchestrator subscription and attach identities to it, so it could run code as this identity (as it can already
   as the CloudScanner disk encryption identity, which holds the same role on the orchestrator subscription);
-- in either mode, code run inside a scan instance that can call out using its managed identity.
+- in either mode, code run inside a scan instance that can call out using its managed identity;
+- anyone with Contributor, or with identity and compute write, on the orchestrator subscription or the scan resource
+  group: they can add a federated credential to the identity or attach it to compute of their own;
+- in the legacy client-secret flow, anyone who can read the Terraform state, which holds the onboarding app's secret.
+
+Restrict write access on the orchestrator subscription and the scan resource group accordingly.
 
 Upwind can already read the SQL data through the source's backups, so the extra exposure is mostly to whatever else
 shares the vault. To keep it small: list only vaults dedicated to SQL Managed Instance TDE keys, keep the vault firewall
@@ -78,12 +83,17 @@ that have only ever used service-managed keys need nothing here.
 
 **Other notes.**
 
+- **Don't empty the list while scan instances use the identity.** Emptying it deletes the identity, but the scan
+  instances keep it as their primary identity, so worker sign-in to them fails until Upwind replaces it. Offboard the
+  scanners in Upwind first, or keep at least one vault listed.
 - **Grant through the list only.** The identity is recreated, with a new principal, whenever the list is emptied or the
   feature (or DSPM, or CloudScanner in Outpost) is turned off and on again, which silently breaks a grant made to it
   directly.
-- **SaaS, with vaults listed:** the identity needs the `Microsoft.ManagedIdentity` resource provider registered on the
-  orchestrator subscription. The SaaS examples register only `Microsoft.Compute`; add it to `resource_providers_to_register`, or
-  register it beforehand, or the apply fails with `MissingSubscriptionRegistration`.
+- **SaaS resource providers:** the Snapshot app can't register resource providers, so register `Microsoft.Sql` and
+  `Microsoft.Network` on the orchestrator subscription, plus `Microsoft.ManagedIdentity` when vaults are listed. The
+  other SaaS examples register only `Microsoft.Compute`; see `examples/tenant-saas-dspm-sql-mi`, which adds them to
+  `resource_providers_to_register`. Otherwise the apply (for the identity) or the first scan (for the scan instance and
+  its network) fails with `MissingSubscriptionRegistration`.
 - **Auditing:** each restore unwraps the key, which shows in the vault's logs and may raise Defender for Key Vault
   alerts.
 - **Propagation:** a new grant can take several minutes to take effect.
@@ -101,8 +111,8 @@ the order matters:
    lock on those vaults first.
 
 If you turn the feature off while a scan managed instance is still in the resource group, the plan warns
-(`dspm_sql_managed_instance_offboard_first`) and names it. The check costs one read call per plan: it lists the
-orchestrator subscription's managed instances. It doesn't look for leftover network, which costs next to nothing but
+(`dspm_sql_managed_instance_offboard_first`) and names it. The check costs one read call on every plan and apply: it
+lists the orchestrator subscription's managed instances. It doesn't look for leftover network, which costs next to nothing but
 still blocks the delete, and `terraform destroy` does not run it, so there is no warning on destroy: offboard in
 Upwind first. If you apply anyway, the resource group delete fails, Upwind can no longer remove what is left, and a
 scan instance keeps billing. To recover, turn the feature back on and offboard in Upwind, or delete the resource group
@@ -221,6 +231,7 @@ No modules.
 | [azuread_service_principal.msgraph](https://registry.terraform.io/providers/hashicorp/azuread/latest/docs/data-sources/service_principal) | data source |
 | [azurerm_client_config.current](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/data-sources/client_config) | data source |
 | [azurerm_management_group.scope](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/data-sources/management_group) | data source |
+| [azurerm_resources.dspm_sql_managed_instance_scan_instances](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/data-sources/resources) | data source |
 | [azurerm_subscription.orchestrator](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/data-sources/subscription) | data source |
 | [azurerm_subscriptions.all](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/data-sources/subscriptions) | data source |
 | [http_http.upwind_create_organizational_credentials_request](https://registry.terraform.io/providers/hashicorp/http/latest/docs/data-sources/http) | data source |
@@ -264,7 +275,7 @@ No modules.
 | <a name="input_key_vault_logging_retention_in_days"></a> [key\_vault\_logging\_retention\_in\_days](#input\_key\_vault\_logging\_retention\_in\_days) | The number of days to retain logs in the Log Analytics Workspace. Only relevant if key\_vault\_logging\_enabled is true. | `number` | `30` | no |
 | <a name="input_key_vault_private_network"></a> [key\_vault\_private\_network](#input\_key\_vault\_private\_network) | Whether to provision the Key Vault with public network access fully disabled (private networking). When true, Terraform cannot reach the vault to write secrets, so the module will NOT create the 'upwind-client-id' and 'upwind-client-secret' secrets - you must add them manually (see the key\_vault\_name output). CloudScanner infrastructure is still provisioned without needing scanner\_client\_id/scanner\_client\_secret. Cannot be combined with key\_vault\_deny\_traffic. | `bool` | `false` | no |
 | <a name="input_resource_suffix"></a> [resource\_suffix](#input\_resource\_suffix) | The suffix to append to all resources created by this module. | `string` | `""` | no |
-| <a name="input_saas_enabled"></a> [saas\_enabled](#input\_saas\_enabled) | Enable SaaS (provider-hosted, secretless) onboarding. When true, the customer tenant only consents to Upwind's multi-tenant Snapshot and Fetcher app registrations and assigns them scoped roles at management-group (tenant-root) scope. No app registration, Key Vault, managed identities, custom roles, scanner credentials, or Upwind API calls are created, except that Azure SQL MI DSPM (upwind\_feature\_dspm\_azure\_sql\_managed\_instance\_enabled), when on, creates its custom roles, plus, when dspm\_sql\_tde\_key\_vault\_ids lists vaults, the scan instances' user-assigned identity, which needs Microsoft.ManagedIdentity registered on the orchestrator subscription (see the module README). Self-hosted resources are skipped. Defaults to false (self-hosted, unchanged). | `bool` | `false` | no |
+| <a name="input_saas_enabled"></a> [saas\_enabled](#input\_saas\_enabled) | Enable SaaS (provider-hosted, secretless) onboarding. When true, the customer tenant only consents to Upwind's multi-tenant Snapshot and Fetcher app registrations and assigns them scoped roles at management-group (tenant-root) scope. No app registration, Key Vault, managed identities, scanner credentials, or Upwind API calls are created. It does create the central snapshots resource group and custom roles at the snapshot and read scopes (CloudScannerTargetRole, UpwindCustomRole and, with DSPM on, the UpwindDSPMEnabled marker). Azure SQL MI DSPM (upwind\_feature\_dspm\_azure\_sql\_managed\_instance\_enabled), when on, also creates its scan resource group and custom roles, and, when dspm\_sql\_tde\_key\_vault\_ids lists vaults, the scan instances' user-assigned identity; it needs Microsoft.Sql and Microsoft.Network registered on the orchestrator subscription, plus Microsoft.ManagedIdentity with vaults listed (see the module README). Self-hosted resources are skipped. Defaults to false (self-hosted, unchanged). | `bool` | `false` | no |
 | <a name="input_scanner_client_id"></a> [scanner\_client\_id](#input\_scanner\_client\_id) | The client ID used for authentication with the Upwind CloudScanner Service. | `string` | `""` | no |
 | <a name="input_scanner_client_secret"></a> [scanner\_client\_secret](#input\_scanner\_client\_secret) | The client secret for authentication with the Upwind CloudScanner Service. | `string` | `""` | no |
 | <a name="input_skip_app_service_provider_registration"></a> [skip\_app\_service\_provider\_registration](#input\_skip\_app\_service\_provider\_registration) | DEPRECATED: We have removed the need for this variable. Set to true to skip the Microsoft.App provider registration, recommended if running on Windows. If resource\_providers\_to\_register is set to ["Microsoft.App"] on the azurerm provider, this can safely be set to true. | `bool` | `false` | no |

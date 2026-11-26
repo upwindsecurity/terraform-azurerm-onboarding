@@ -32,65 +32,6 @@ mock_provider "azuread" {
     }
   }
 }
-# Mock providers for the offboard-first check, whose lookup (scoped to the check)
-# can't be overridden by address: one listing a scan instance left in the scan RG
-# (in the casing Azure may return), one listing only a customer's own instance.
-mock_provider "azurerm" {
-  alias = "scan_instance_left"
-  mock_data "azurerm_subscription" {
-    defaults = {
-      subscription_id = "00000000-0000-0000-0000-000000000000"
-      tenant_id       = "00000000-0000-0000-0000-000000000002"
-    }
-  }
-  mock_data "azurerm_client_config" {
-    defaults = {
-      subscription_id = "00000000-0000-0000-0000-000000000000"
-      tenant_id       = "00000000-0000-0000-0000-000000000002"
-    }
-  }
-  mock_data "azurerm_resources" {
-    defaults = {
-      resources = [{
-        id                  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/UPWIND-CS-SQLMI-RG-ORG_TEST/providers/Microsoft.Sql/managedInstances/scan-westus3"
-        name                = "scan-westus3"
-        type                = "Microsoft.Sql/managedInstances"
-        location            = "westus3"
-        resource_group_name = "UPWIND-CS-SQLMI-RG-ORG_TEST"
-        tags                = {}
-      }]
-    }
-  }
-}
-
-mock_provider "azurerm" {
-  alias = "customer_instance_only"
-  mock_data "azurerm_subscription" {
-    defaults = {
-      subscription_id = "00000000-0000-0000-0000-000000000000"
-      tenant_id       = "00000000-0000-0000-0000-000000000002"
-    }
-  }
-  mock_data "azurerm_client_config" {
-    defaults = {
-      subscription_id = "00000000-0000-0000-0000-000000000000"
-      tenant_id       = "00000000-0000-0000-0000-000000000002"
-    }
-  }
-  mock_data "azurerm_resources" {
-    defaults = {
-      resources = [{
-        id                  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/customer-data-rg/providers/Microsoft.Sql/managedInstances/sales-mi"
-        name                = "sales-mi"
-        type                = "Microsoft.Sql/managedInstances"
-        location            = "westus3"
-        resource_group_name = "customer-data-rg"
-        tags                = {}
-      }]
-    }
-  }
-}
-
 mock_provider "random" {}
 mock_provider "time" {}
 mock_provider "null" {}
@@ -621,17 +562,42 @@ run "role_definition_wait_tracks_every_definition" {
 }
 
 # Turning the feature off while a scan instance (which bills) is still in the
-# scan RG removes the roles Upwind needs to delete it: warn.
+# scan RG removes the roles Upwind needs to delete it: warn. Azure may return
+# the RG name in another casing.
 run "feature_off_with_scan_instance_left_warns" {
-  command         = plan
-  providers       = { azurerm = azurerm.scan_instance_left, azuread = azuread, random = random, time = time, null = null, http = http }
+  command = plan
+  override_data {
+    target = data.azurerm_resources.dspm_sql_managed_instance_scan_instances
+    values = {
+      resources = [{
+        id                  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/UPWIND-CS-SQLMI-RG-ORG_TEST/providers/Microsoft.Sql/managedInstances/scan-westus3"
+        name                = "scan-westus3"
+        type                = "Microsoft.Sql/managedInstances"
+        location            = "westus3"
+        resource_group_name = "UPWIND-CS-SQLMI-RG-ORG_TEST"
+        tags                = {}
+      }]
+    }
+  }
   expect_failures = [check.dspm_sql_managed_instance_offboard_first]
 }
 
 # With the feature on, the scan instance is expected: no warning.
 run "feature_on_with_scan_instance_does_not_warn" {
-  command   = plan
-  providers = { azurerm = azurerm.scan_instance_left, azuread = azuread, random = random, time = time, null = null, http = http }
+  command = plan
+  override_data {
+    target = data.azurerm_resources.dspm_sql_managed_instance_scan_instances
+    values = {
+      resources = [{
+        id                  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/upwind-cs-sqlmi-rg-org_test/providers/Microsoft.Sql/managedInstances/scan-westus3"
+        name                = "scan-westus3"
+        type                = "Microsoft.Sql/managedInstances"
+        location            = "westus3"
+        resource_group_name = "upwind-cs-sqlmi-rg-org_test"
+        tags                = {}
+      }]
+    }
+  }
   variables {
     upwind_feature_dspm_azure_sql_managed_instance_enabled = true
   }
@@ -639,8 +605,20 @@ run "feature_on_with_scan_instance_does_not_warn" {
 
 # The customer's own managed instances, in other RGs, don't count.
 run "feature_off_other_rg_does_not_warn" {
-  command   = plan
-  providers = { azurerm = azurerm.customer_instance_only, azuread = azuread, random = random, time = time, null = null, http = http }
+  command = plan
+  override_data {
+    target = data.azurerm_resources.dspm_sql_managed_instance_scan_instances
+    values = {
+      resources = [{
+        id                  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/customer-data-rg/providers/Microsoft.Sql/managedInstances/sales-mi"
+        name                = "sales-mi"
+        type                = "Microsoft.Sql/managedInstances"
+        location            = "westus3"
+        resource_group_name = "customer-data-rg"
+        tags                = {}
+      }]
+    }
+  }
 }
 
 # region Customer-managed TDE keys
@@ -767,6 +745,25 @@ run "no_tde_grants_with_flag_off" {
   assert {
     condition     = length(azurerm_user_assigned_identity.dspm_sql_managed_instance_tde) == 0 && length(azurerm_role_assignment.dspm_sql_managed_instance_tde_key_vault) == 0
     error_message = "vaults listed without the feature on grant nothing"
+  }
+}
+
+# Wrapper modules often forward an unset input as null: it means "none".
+run "null_lists_mean_none" {
+  command = plan
+  variables {
+    upwind_feature_dspm_azure_sql_managed_instance_enabled = true
+    dspm_sql_managed_instances                             = null
+    dspm_sql_tde_key_vault_ids                             = null
+  }
+
+  assert {
+    condition     = length(azurerm_user_assigned_identity.dspm_sql_managed_instance_tde) == 0 && length(azurerm_role_assignment.dspm_sql_managed_instance_tde_key_vault) == 0
+    error_message = "a null vault list is an empty one"
+  }
+  assert {
+    condition     = length(azurerm_role_assignment.dspm_sql_managed_instance_backup_reader) == 1
+    error_message = "a null instance list is the default broad mode"
   }
 }
 

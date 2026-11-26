@@ -16,6 +16,9 @@ locals {
 
 provider "azurerm" {
   subscription_id = local.azure_orchestrator_subscription_id
+  # Pinned: azurerm 4.x defaults to "legacy" (which registers Microsoft.KeyVault
+  # and the other providers this module uses), 5.x to "none".
+  resource_provider_registrations = "legacy"
   # Microsoft.App for CloudScanner. Upwind's principal can't register resource
   # providers, so register what the scan managed instance (Microsoft.Sql), its
   # network (Microsoft.Network) and the TDE identity (Microsoft.ManagedIdentity)

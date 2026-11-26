@@ -197,25 +197,29 @@ check "dspm_sql_managed_instance_needs_cloudscanner" {
 # RG delete, whose error names it. terraform destroy doesn't run check blocks,
 # so there is no warning on destroy (see the module README).
 #
-# One list call per plan, for every customer: the subscription's managed
-# instances, filtered by type in Azure (not by RG name, which fails for an RG
-# that doesn't exist), then by the scan RG here. Scoped to the check, so a
-# failed lookup (e.g. no read access) is a warning, never a failed plan.
+# One list call on every plan and apply, for every customer: the
+# subscription's managed instances, filtered by type in Azure (not by RG name,
+# which fails for an RG that doesn't exist), then by the scan RG here.
+# Top-level, not nested in the check: Terraform always plans a data source
+# nested in a check as "read during apply", so every plan of every customer
+# would show a pending change (-detailed-exitcode 2). A failed lookup (e.g. no
+# read access) therefore fails the plan.
 locals {
   dspm_sql_managed_instance_scan_rg_name = "upwind-cs-sqlmi-rg-${var.upwind_organization_id}"
+  dspm_sql_managed_instance_scan_rg_instances = sort([
+    for r in data.azurerm_resources.dspm_sql_managed_instance_scan_instances.resources : r.name
+    if lower(r.resource_group_name) == lower(local.dspm_sql_managed_instance_scan_rg_name)
+  ])
+}
+
+data "azurerm_resources" "dspm_sql_managed_instance_scan_instances" {
+  type = "Microsoft.Sql/managedInstances"
 }
 
 check "dspm_sql_managed_instance_offboard_first" {
-  data "azurerm_resources" "dspm_sql_managed_instance_scan_instances" {
-    type = "Microsoft.Sql/managedInstances"
-  }
-
   assert {
-    condition = local.dspm_sql_managed_instance_enabled || length([
-      for r in data.azurerm_resources.dspm_sql_managed_instance_scan_instances.resources : r
-      if lower(r.resource_group_name) == lower(local.dspm_sql_managed_instance_scan_rg_name)
-    ]) == 0
-    error_message = "Azure SQL MI DSPM is off, but ${local.dspm_sql_managed_instance_scan_rg_name} still holds the scan managed instance(s) ${join(", ", sort([for r in data.azurerm_resources.dspm_sql_managed_instance_scan_instances.resources : r.name if lower(r.resource_group_name) == lower(local.dspm_sql_managed_instance_scan_rg_name)]))}, which keep billing. Applying removes the roles Upwind needs to delete them, and the resource group delete then fails. Keep the feature on (upwind_feature_dspm_azure_sql_managed_instance_enabled, with DSPM enabled) until the scanners/org are offboarded in Upwind, which empties the RG, then turn it off. If the roles are already gone, either turn the feature back on and offboard in Upwind, or delete the RG yourself."
+    condition     = local.dspm_sql_managed_instance_enabled || length(local.dspm_sql_managed_instance_scan_rg_instances) == 0
+    error_message = "Azure SQL MI DSPM is off, but ${local.dspm_sql_managed_instance_scan_rg_name} still holds the scan managed instance(s) ${join(", ", local.dspm_sql_managed_instance_scan_rg_instances)}, which keep billing. Applying removes the roles Upwind needs to delete them, and the resource group delete then fails. Keep the feature on (upwind_feature_dspm_azure_sql_managed_instance_enabled, with DSPM enabled) until the scanners/org are offboarded in Upwind, which empties the RG, then turn it off. If the roles are already gone, either turn the feature back on and offboard in Upwind, or delete the RG yourself."
   }
 }
 
@@ -494,7 +498,9 @@ resource "azurerm_role_assignment" "dspm_sql_managed_instance_backup_reader" {
 # CloudScanner deployer role (Microsoft.Compute/*, Microsoft.App/*, container
 # groups, deployment scripts and userAssignedIdentities/assign/action on the
 # orchestrator subscription) can run code as it, as it can as the existing disk
-# encryption identity. The DSPM roles themselves add no compute (see the tests).
+# encryption identity. So can anyone with Contributor, or identity and compute
+# write, on the orchestrator subscription or the scan RG. The DSPM roles
+# themselves add no compute (see the tests).
 
 locals {
   dspm_sql_managed_instance_tde_identity_name = "upwind-cs-sqlmi-scan-identity-${var.upwind_organization_id}"
@@ -525,6 +531,15 @@ resource "azurerm_role_assignment" "dspm_sql_managed_instance_tde_key_vault" {
   # ARM doesn't look the principal up.
   principal_type = "ServicePrincipal"
   scope          = each.value
+
+  lifecycle {
+    # Keyed by the lower-cased vault ID, so within a key only the casing of the
+    # scope can differ. scope forces replacement, and Azure compares IDs
+    # ignoring case: re-casing an entry (e.g. a hand-written ID swapped for
+    # data.azurerm_key_vault.x.id) must not delete and recreate the grant,
+    # which fails on a vault with a delete lock.
+    ignore_changes = [scope]
+  }
 }
 
 # endregion

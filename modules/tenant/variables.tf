@@ -277,6 +277,8 @@ variable "dspm_sql_managed_instances" {
   description = "Azure SQL MI DSPM, optional allowlist: ARM resource IDs of the source managed instances Upwind may restore from, e.g. [\"/subscriptions/{sub-id}/resourceGroups/{rg}/providers/Microsoft.Sql/managedInstances/{name}\"]. Empty (the default) grants the read-only Upwind DSPM SQL MI Backup Reader role (read the instances and their databases, read backups, read the TDE protector and the keys registered on the instance) at the CloudScanner scopes, like the storage DSPM data readers: managed instances created later are covered with no Terraform change, and which ones are scanned is chosen in the Upwind console with the scanner's capability selectors. Those selectors aren't enforced in Azure: with the restore rights the executor holds on the scan instance, the empty-list default lets the principal restore any managed instance database under the CloudScanner scopes (tenant-wide by default) into Upwind's scan instance, i.e. read all of their data, just as the storage DSPM default lets it read every blob. Set this list to limit that to the instances you name. When set, the role is assigned on the listed instances only, and an instance added later isn't scanned until it's added here and the module is re-applied. Only used when upwind_feature_dspm_azure_sql_managed_instance_enabled is in effect. Sources on a customer-managed TDE key also need key access: see dspm_sql_tde_key_vault_ids."
   type        = list(string)
   default     = []
+  # null means "none", as [] does, for wrapper modules that forward an unset input.
+  nullable = false
 
   validation {
     condition = alltrue([
@@ -291,6 +293,8 @@ variable "dspm_sql_tde_key_vault_ids" {
   description = "Azure SQL MI DSPM, customer-managed TDE keys: ARM resource IDs of the Key Vaults holding the source managed instances' TDE keys, e.g. [\"/subscriptions/{sub-id}/resourceGroups/{rg}/providers/Microsoft.KeyVault/vaults/{name}\"]. When the list isn't empty, a user-assigned identity for the scan instances (upwind-cs-sqlmi-scan-identity-<orgId>, in upwind-cs-sqlmi-rg-<orgId>) is created and gets the built-in Key Vault Crypto Service Encryption User role on each vault; leave it empty if all sources use service-managed keys. Sources whose keys Upwind can't use are skipped and reported as key_inaccessible. Which vaults to list, and the requirements on them (RBAC permission model, firewall, resource locks, rights to apply), are in the module README under \"customer-managed TDE keys\". Pass IDs known at plan time (built from names), not attributes of a vault created in the same apply. Only used when upwind_feature_dspm_azure_sql_managed_instance_enabled is in effect."
   type        = list(string)
   default     = []
+  # null means "none", as [] does, for wrapper modules that forward an unset input.
+  nullable = false
 
   validation {
     condition = alltrue([
@@ -375,7 +379,7 @@ variable "create_organizational_credentials" {
 # region saas
 
 variable "saas_enabled" {
-  description = "Enable SaaS (provider-hosted, secretless) onboarding. When true, the customer tenant only consents to Upwind's multi-tenant Snapshot and Fetcher app registrations and assigns them scoped roles at management-group (tenant-root) scope. No app registration, Key Vault, managed identities, custom roles, scanner credentials, or Upwind API calls are created, except that Azure SQL MI DSPM (upwind_feature_dspm_azure_sql_managed_instance_enabled), when on, creates its custom roles, plus, when dspm_sql_tde_key_vault_ids lists vaults, the scan instances' user-assigned identity, which needs Microsoft.ManagedIdentity registered on the orchestrator subscription (see the module README). Self-hosted resources are skipped. Defaults to false (self-hosted, unchanged)."
+  description = "Enable SaaS (provider-hosted, secretless) onboarding. When true, the customer tenant only consents to Upwind's multi-tenant Snapshot and Fetcher app registrations and assigns them scoped roles at management-group (tenant-root) scope. No app registration, Key Vault, managed identities, scanner credentials, or Upwind API calls are created. It does create the central snapshots resource group and custom roles at the snapshot and read scopes (CloudScannerTargetRole, UpwindCustomRole and, with DSPM on, the UpwindDSPMEnabled marker). Azure SQL MI DSPM (upwind_feature_dspm_azure_sql_managed_instance_enabled), when on, also creates its scan resource group and custom roles, and, when dspm_sql_tde_key_vault_ids lists vaults, the scan instances' user-assigned identity; it needs Microsoft.Sql and Microsoft.Network registered on the orchestrator subscription, plus Microsoft.ManagedIdentity with vaults listed (see the module README). Self-hosted resources are skipped. Defaults to false (self-hosted, unchanged)."
   type        = bool
   default     = false
 }

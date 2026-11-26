@@ -44,7 +44,7 @@ Additional configuration options:
 
 ### SaaS (Provider-Hosted) Examples
 
-Secretless onboarding where scanning runs in Upwind's tenant — no customer-side scanner, Key Vault, managed identities, or credentials:
+Secretless onboarding where scanning runs in Upwind's tenant — no customer-side scanner, Key Vault, managed identities, or credentials (except the Azure SQL MI scan instances' identity in tenant-saas-dspm-sql-mi):
 
 - **[tenant-saas](tenant-saas/)** - SaaS onboarding; the module creates and consents the Snapshot/Fetcher service principals
 - **[tenant-saas-management-groups](tenant-saas-management-groups/)** - SaaS onboarding scoped to specific management groups (no tenant-root scope, no tenant-wide subscription listing)
