@@ -32,6 +32,65 @@ mock_provider "azuread" {
     }
   }
 }
+# Mock providers for the offboard-first check, whose lookup (scoped to the check)
+# can't be overridden by address: one listing a scan instance left in the scan RG
+# (in the casing Azure may return), one listing only a customer's own instance.
+mock_provider "azurerm" {
+  alias = "scan_instance_left"
+  mock_data "azurerm_subscription" {
+    defaults = {
+      subscription_id = "00000000-0000-0000-0000-000000000000"
+      tenant_id       = "00000000-0000-0000-0000-000000000002"
+    }
+  }
+  mock_data "azurerm_client_config" {
+    defaults = {
+      subscription_id = "00000000-0000-0000-0000-000000000000"
+      tenant_id       = "00000000-0000-0000-0000-000000000002"
+    }
+  }
+  mock_data "azurerm_resources" {
+    defaults = {
+      resources = [{
+        id                  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/UPWIND-CS-SQLMI-RG-ORG_TEST/providers/Microsoft.Sql/managedInstances/scan-westus3"
+        name                = "scan-westus3"
+        type                = "Microsoft.Sql/managedInstances"
+        location            = "westus3"
+        resource_group_name = "UPWIND-CS-SQLMI-RG-ORG_TEST"
+        tags                = {}
+      }]
+    }
+  }
+}
+
+mock_provider "azurerm" {
+  alias = "customer_instance_only"
+  mock_data "azurerm_subscription" {
+    defaults = {
+      subscription_id = "00000000-0000-0000-0000-000000000000"
+      tenant_id       = "00000000-0000-0000-0000-000000000002"
+    }
+  }
+  mock_data "azurerm_client_config" {
+    defaults = {
+      subscription_id = "00000000-0000-0000-0000-000000000000"
+      tenant_id       = "00000000-0000-0000-0000-000000000002"
+    }
+  }
+  mock_data "azurerm_resources" {
+    defaults = {
+      resources = [{
+        id                  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/customer-data-rg/providers/Microsoft.Sql/managedInstances/sales-mi"
+        name                = "sales-mi"
+        type                = "Microsoft.Sql/managedInstances"
+        location            = "westus3"
+        resource_group_name = "customer-data-rg"
+        tags                = {}
+      }]
+    }
+  }
+}
+
 mock_provider "random" {}
 mock_provider "time" {}
 mock_provider "null" {}
@@ -561,6 +620,29 @@ run "role_definition_wait_tracks_every_definition" {
     ]
     error_message = "the definition wait must be triggered by every definition, the Outpost join role included, so adding one later waits again"
   }
+}
+
+# Turning the feature off while a scan instance (which bills) is still in the
+# scan RG removes the roles Upwind needs to delete it: warn.
+run "feature_off_with_scan_instance_left_warns" {
+  command         = plan
+  providers       = { azurerm = azurerm.scan_instance_left, azuread = azuread, random = random, time = time, null = null, http = http }
+  expect_failures = [check.dspm_sql_managed_instance_offboard_first]
+}
+
+# With the feature on, the scan instance is expected: no warning.
+run "feature_on_with_scan_instance_does_not_warn" {
+  command   = plan
+  providers = { azurerm = azurerm.scan_instance_left, azuread = azuread, random = random, time = time, null = null, http = http }
+  variables {
+    upwind_feature_dspm_azure_sql_managed_instance_enabled = true
+  }
+}
+
+# The customer's own managed instances, in other RGs, don't count.
+run "feature_off_other_rg_does_not_warn" {
+  command   = plan
+  providers = { azurerm = azurerm.customer_instance_only, azuread = azuread, random = random, time = time, null = null, http = http }
 }
 
 # region Customer-managed TDE keys

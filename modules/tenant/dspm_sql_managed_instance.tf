@@ -52,9 +52,7 @@
 # the roles can delete them: the RG only ever holds Upwind's own resources. The
 # RG itself stays with Terraform, so destroy finds it empty. The order matters:
 # turning the feature off first removes the roles and strands whatever is still
-# in the RG (see the module README). There is deliberately no plan-time check
-# for that: it would have to list the orchestrator subscription's resources on
-# every plan of every customer, including those who never turn the feature on.
+# in the RG (see the dspm_sql_managed_instance_offboard_first check).
 #
 # Deliberately NOT granted: privateEndpointConnectionsApproval/action and the
 # managedInstances/*/action wildcard it would need (the executor creates the
@@ -186,6 +184,36 @@ check "dspm_sql_managed_instance_needs_cloudscanner" {
   }
 }
 
+# Turning the feature off removes the executor's roles before Terraform tries
+# to delete the RG, so anything still in it is stranded: the RG delete fails
+# (prevent_deletion_if_contains_resources) and Upwind can no longer remove it.
+# Warn while the feature is off and a scan instance, the part that bills, is
+# still in the RG. Leftover network costs next to nothing; it still blocks the
+# RG delete, whose error names it. terraform destroy doesn't run check blocks,
+# so there is no warning on destroy (see the module README).
+#
+# One list call per plan, for every customer: the subscription's managed
+# instances, filtered by type in Azure (not by RG name, which fails for an RG
+# that doesn't exist), then by the scan RG here. Scoped to the check, so a
+# failed lookup (e.g. no read access) is a warning, never a failed plan.
+locals {
+  dspm_sql_managed_instance_scan_rg_name = "upwind-cs-sqlmi-rg-${var.upwind_organization_id}"
+}
+
+check "dspm_sql_managed_instance_offboard_first" {
+  data "azurerm_resources" "dspm_sql_managed_instance_scan_instances" {
+    type = "Microsoft.Sql/managedInstances"
+  }
+
+  assert {
+    condition = local.dspm_sql_managed_instance_enabled || length([
+      for r in data.azurerm_resources.dspm_sql_managed_instance_scan_instances.resources : r
+      if lower(r.resource_group_name) == lower(local.dspm_sql_managed_instance_scan_rg_name)
+    ]) == 0
+    error_message = "Azure SQL MI DSPM is off, but ${local.dspm_sql_managed_instance_scan_rg_name} still holds the scan managed instance(s) ${join(", ", sort([for r in data.azurerm_resources.dspm_sql_managed_instance_scan_instances.resources : r.name if lower(r.resource_group_name) == lower(local.dspm_sql_managed_instance_scan_rg_name)]))}, which keep billing. Applying removes the roles Upwind needs to delete them, and the resource group delete then fails. Keep the feature on (upwind_feature_dspm_azure_sql_managed_instance_enabled, with DSPM enabled) until the scanners/org are offboarded in Upwind, which empties the RG, then turn it off. If the roles are already gone, either turn the feature back on and offboard in Upwind, or delete the RG yourself."
+  }
+}
+
 # region Resource group
 
 # Holds each region's scan instance and its network, and in Outpost the private
@@ -195,7 +223,7 @@ check "dspm_sql_managed_instance_needs_cloudscanner" {
 # removed (virtual cluster teardown), so deleting this RG may need a retry.
 resource "azurerm_resource_group" "dspm_sql_managed_instance" {
   count    = local.dspm_sql_managed_instance_enabled ? 1 : 0
-  name     = "upwind-cs-sqlmi-rg-${var.upwind_organization_id}"
+  name     = local.dspm_sql_managed_instance_scan_rg_name
   location = var.azure_cloudscanner_location
   tags     = var.tags
 
