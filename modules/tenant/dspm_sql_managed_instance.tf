@@ -100,7 +100,7 @@ locals {
     # Customer-managed TDE: register a source's key on the scan instance if
     # the restore turns out to need it linked there. Not yet shown either way:
     # the lab restore that worked without registering used a key the scan
-    # instance had used before (UP-14344).
+    # instance had used before.
     "Microsoft.Sql/managedInstances/keys/read",
     "Microsoft.Sql/managedInstances/keys/write",
     # Check whether the TDE key identity (below) exists, which it only does
@@ -404,7 +404,7 @@ locals {
     # List the keys registered on the source (the current protector and the
     # keys it was rotated from), so the executor can check the ones a restore
     # may need: a restore to a point after a key rotation still needs the old
-    # key (tested, UP-14344). Exposes key URIs only, never key material.
+    # key (tested). Exposes key URIs only, never key material.
     "Microsoft.Sql/managedInstances/keys/read",
   ]
 }

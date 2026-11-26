@@ -209,7 +209,7 @@ run "scan_instance_operator_has_scan_cycle_actions" {
       for a in ["Microsoft.Sql/managedInstances/keys/read", "Microsoft.Sql/managedInstances/keys/write"] :
       contains(azurerm_role_definition.dspm_sql_managed_instance_scan_instance_operator[0].permissions[0].actions, a)
     ])
-    error_message = "the executor must be able to register a source's TDE key on the scan instance (not yet shown unnecessary, UP-14344)"
+    error_message = "the executor must be able to register a source's TDE key on the scan instance (not yet shown to be unnecessary)"
   }
   assert {
     condition = length(setintersection(
