@@ -39,16 +39,18 @@ Additional configuration options:
 - **[tenant-keyvault-deny](tenant-keyvault-deny/)** - Secure Key Vault with network restrictions
 - **[tenant-keyvault-private](tenant-keyvault-private/)** - Fully private Key Vault (secrets added manually)
 - **[tenant-dspm-scoped](tenant-dspm-scoped/)** - Scope the DSPM/function-scanning storage data-plane grants to an allowlist of storage accounts
+- **[tenant-dspm-sql-mi](tenant-dspm-sql-mi/)** - Azure SQL Managed Instance DSPM, with a source instance allowlist and customer-managed TDE key vaults
 - **[tenant-wif](tenant-wif/)** - Secretless onboarding via workload identity federation
 
 ### SaaS (Provider-Hosted) Examples
 
-Secretless onboarding where scanning runs in Upwind's tenant — no customer-side scanner, Key Vault, managed identities, or credentials:
+Secretless onboarding where scanning runs in Upwind's tenant — no customer-side scanner, Key Vault, managed identities, or credentials (except the Azure SQL MI scan instances' identity in tenant-saas-dspm-sql-mi):
 
 - **[tenant-saas](tenant-saas/)** - SaaS onboarding; the module creates and consents the Snapshot/Fetcher service principals
 - **[tenant-saas-management-groups](tenant-saas-management-groups/)** - SaaS onboarding scoped to specific management groups (no tenant-root scope, no tenant-wide subscription listing)
 - **[tenant-saas-existing-sp](tenant-saas-existing-sp/)** - SaaS onboarding using pre-created service principals (runner needs no Microsoft Graph permissions)
 - **[tenant-saas-dspm-scoped](tenant-saas-dspm-scoped/)** - SaaS onboarding with the DSPM data-plane grants scoped to a storage-account allowlist
+- **[tenant-saas-dspm-sql-mi](tenant-saas-dspm-sql-mi/)** - SaaS onboarding with Azure SQL Managed Instance DSPM and a customer-managed TDE key vault
 
 ### Advanced Examples
 
@@ -72,6 +74,8 @@ Production-ready configurations:
 | [tenant-saas](tenant-saas/) | Tenant | N/A (provider-hosted) | ❌ | N/A | Secretless SaaS onboarding |
 | [tenant-saas-management-groups](tenant-saas-management-groups/) | Mgmt Groups | N/A (provider-hosted) | ❌ | N/A | Secretless SaaS, management group scope only |
 | [tenant-saas-existing-sp](tenant-saas-existing-sp/) | Tenant | N/A (provider-hosted) | ❌ | N/A | SaaS with pre-created SPs |
+| [tenant-dspm-sql-mi](tenant-dspm-sql-mi/) | Tenant | ✅ | ❌ | Allow | Azure SQL MI DSPM with TDE key vaults |
+| [tenant-saas-dspm-sql-mi](tenant-saas-dspm-sql-mi/) | Tenant | N/A (provider-hosted) | ❌ | N/A | SaaS with Azure SQL MI DSPM |
 
 ## Choosing an Example
 

@@ -11,6 +11,9 @@
 #   * orchestrator side (Account B): one resource group,
 #     upwind-cs-sqlmi-rg-<orgId>, for the scan instances and everything the
 #     executor creates around them, and the executor's custom roles on it;
+#   * only when dspm_sql_tde_key_vault_ids lists vaults (customer-managed
+#     TDE): the scan instances' user-assigned identity in that RG, and its key
+#     grant on each of them;
 #   * source side (Account A): a read-only role on the customer's source managed
 #     instances (by default at the CloudScanner scopes; optionally only on the
 #     instances listed in dspm_sql_managed_instances), so the executor can
@@ -32,7 +35,9 @@
 #     Its private endpoint and DNS live in Upwind's subscription (C), so here it
 #     only gets what it needs to build and remove the scan instance's own
 #     network, confined to the scan RG.
-# No identity is created here, so nothing has to be handed back to Upwind.
+# The one identity created here is for the scan instances, not the executor:
+# see "Customer-managed TDE keys" below. Its name is fixed, so nothing has to
+# be handed back to Upwind.
 #
 # Effective access in Outpost: the onboarding service principal also holds the
 # CloudScanner deployer role (Microsoft.Network/* and more on the orchestrator
@@ -89,7 +94,13 @@ locals {
     "Microsoft.Sql/managedInstances/administrators/write",
     "Microsoft.Sql/managedInstances/azureADOnlyAuthentications/read",
     "Microsoft.Sql/managedInstances/azureADOnlyAuthentications/write",
-    # Register a source's customer-managed TDE key on the scan instance.
+    # Customer-managed TDE: before restoring, check the scan instance can use
+    # each of the source's keys.
+    "Microsoft.Sql/managedInstances/validateAzureKeyVaultEncryptionKey/action",
+    # Customer-managed TDE: register a source's key on the scan instance if
+    # the restore turns out to need it linked there. Not yet shown either way:
+    # the lab restore that worked without registering used a key the scan
+    # instance had used before.
     "Microsoft.Sql/managedInstances/keys/read",
     "Microsoft.Sql/managedInstances/keys/write",
     # Manual approval of the executor's own private endpoint.
@@ -98,6 +109,17 @@ locals {
     # Long-running operation status. managedDatabaseAzureAsyncOperation/read is
     # checked by ARM but is not a published operation, so only the wildcard works.
     "Microsoft.Sql/locations/*/read",
+  ]
+
+  # Only when TDE key vaults are listed (the TDE key identity below exists):
+  # check that the identity exists and set it as the scan instance's primary
+  # identity, at create or on an existing instance. assign/action lets the
+  # holder attach the identity, and so use its key access, to a resource it
+  # can write: here only the scan instances, since this RG holds no other
+  # identity. Without vaults there is nothing to attach, so it isn't granted.
+  dspm_sql_managed_instance_scan_instance_operator_tde_identity_actions = [
+    "Microsoft.ManagedIdentity/userAssignedIdentities/read",
+    "Microsoft.ManagedIdentity/userAssignedIdentities/assign/action",
   ]
 
   # Upwind DSPM Scan Network, on the same scan RG. Building the scan instance's
@@ -169,47 +191,35 @@ check "dspm_sql_managed_instance_needs_cloudscanner" {
 
 # Turning the feature off removes the executor's roles before Terraform tries
 # to delete the RG, so anything still in it is stranded: the RG delete fails
-# (prevent_deletion_if_contains_resources) and Upwind can no longer remove it. A
-# scan instance keeps billing; network left by a failed first scan or a partial
-# offboarding blocks the delete too. Warn while the feature is off and the RG
-# isn't empty. terraform destroy doesn't run check blocks, so there is no warning
-# on destroy (see the module README).
+# (prevent_deletion_if_contains_resources) and Upwind can no longer remove it.
+# Warn while the feature is off and a scan instance, the part that bills, is
+# still in the RG. Leftover network costs next to nothing; it still blocks the
+# RG delete, whose error names it. terraform destroy doesn't run check blocks,
+# so there is no warning on destroy (see the module README).
 #
-# Lists each type that can end up in the RG (what the executor's roles can
-# create, plus the virtual cluster Azure keeps while it holds a deleted
-# instance's subnet) across the orchestrator subscription. Not by RG name, which
-# fails for an RG that doesn't exist (every plan where the feature was never
-# on), and not the whole subscription, which would page through every resource
-# in it on every plan. Top-level rather than inside the check, which allows only
-# one data source and no for_each.
+# One list call on every plan and apply, for every customer: the
+# subscription's managed instances, filtered by type in Azure (not by RG name,
+# which fails for an RG that doesn't exist), then by the scan RG here.
+# Top-level, not nested in the check: Terraform always plans a data source
+# nested in a check as "read during apply", so every plan of every customer
+# would show a pending change (-detailed-exitcode 2). A failed lookup (e.g. no
+# read access) therefore fails the plan.
 locals {
   dspm_sql_managed_instance_scan_rg_name = "upwind-cs-sqlmi-rg-${var.upwind_organization_id}"
-  dspm_sql_managed_instance_scan_rg_types = toset([
-    "Microsoft.Sql/managedInstances",
-    "Microsoft.Sql/virtualClusters",
-    "Microsoft.Network/virtualNetworks",
-    "Microsoft.Network/networkSecurityGroups",
-    "Microsoft.Network/routeTables",
-    "Microsoft.Network/privateEndpoints",
-    "Microsoft.Network/privateDnsZones",
+  dspm_sql_managed_instance_scan_rg_instances = sort([
+    for r in data.azurerm_resources.dspm_sql_managed_instance_scan_instances.resources : r.name
+    if lower(r.resource_group_name) == lower(local.dspm_sql_managed_instance_scan_rg_name)
   ])
-  dspm_sql_managed_instance_scan_rg_contents = sort(flatten([
-    for type, found in data.azurerm_resources.dspm_sql_managed_instance_scan_rg : [
-      for r in found.resources : "${type}/${r.name}"
-      if lower(split("/", r.id)[4]) == lower(local.dspm_sql_managed_instance_scan_rg_name)
-    ]
-  ]))
 }
 
-data "azurerm_resources" "dspm_sql_managed_instance_scan_rg" {
-  for_each = local.dspm_sql_managed_instance_scan_rg_types
-  type     = each.value
+data "azurerm_resources" "dspm_sql_managed_instance_scan_instances" {
+  type = "Microsoft.Sql/managedInstances"
 }
 
 check "dspm_sql_managed_instance_offboard_first" {
   assert {
-    condition     = local.dspm_sql_managed_instance_enabled || length(local.dspm_sql_managed_instance_scan_rg_contents) == 0
-    error_message = "Azure SQL MI DSPM is off, but ${local.dspm_sql_managed_instance_scan_rg_name} still holds: ${join(", ", local.dspm_sql_managed_instance_scan_rg_contents)}. Applying removes the roles Upwind needs to delete them, the resource group delete then fails, and a scan instance keeps billing. Keep the feature on (upwind_feature_dspm_azure_sql_managed_instance_enabled, with DSPM enabled) until the scanners/org are offboarded in Upwind, which empties the RG, then turn it off. If the roles are already gone, either turn the feature back on and offboard in Upwind, or delete the RG yourself."
+    condition     = local.dspm_sql_managed_instance_enabled || length(local.dspm_sql_managed_instance_scan_rg_instances) == 0
+    error_message = "Azure SQL MI DSPM is off, but ${local.dspm_sql_managed_instance_scan_rg_name} still holds the scan managed instance(s) ${join(", ", local.dspm_sql_managed_instance_scan_rg_instances)}, which keep billing. Applying removes the roles Upwind needs to delete them, and the resource group delete then fails. Keep the feature on (upwind_feature_dspm_azure_sql_managed_instance_enabled, with DSPM enabled) until the scanners/org are offboarded in Upwind, which empties the RG, then turn it off. If the roles are already gone, either turn the feature back on and offboard in Upwind, or delete the RG yourself."
   }
 }
 
@@ -222,7 +232,7 @@ check "dspm_sql_managed_instance_offboard_first" {
 # removed (virtual cluster teardown), so deleting this RG may need a retry.
 resource "azurerm_resource_group" "dspm_sql_managed_instance" {
   count    = local.dspm_sql_managed_instance_enabled ? 1 : 0
-  name     = "upwind-cs-sqlmi-rg-${var.upwind_organization_id}"
+  name     = local.dspm_sql_managed_instance_scan_rg_name
   location = var.azure_cloudscanner_location
   tags     = var.tags
 
@@ -241,11 +251,14 @@ resource "azurerm_resource_group" "dspm_sql_managed_instance" {
 resource "azurerm_role_definition" "dspm_sql_managed_instance_scan_instance_operator" {
   count       = local.dspm_sql_managed_instance_enabled ? 1 : 0
   name        = "UpwindDSPMSQLMIScanInstanceOperator-${local.resource_suffix}"
-  description = "Upwind DSPM: create, start, stop and (on offboarding) delete the Azure SQL scan managed instance, restore point-in-time copies onto it and drop them."
+  description = "Upwind DSPM: create, start, stop and (on offboarding) delete the Azure SQL scan managed instance, ${local.dspm_sql_managed_instance_tde_enabled ? "set its TDE key identity, " : ""}check and register customer-managed TDE keys on it, restore point-in-time copies onto it and drop them."
   scope       = azurerm_resource_group.dspm_sql_managed_instance[0].id
 
   permissions {
-    actions     = local.dspm_sql_managed_instance_scan_instance_operator_actions
+    actions = concat(
+      local.dspm_sql_managed_instance_scan_instance_operator_actions,
+      local.dspm_sql_managed_instance_tde_enabled ? local.dspm_sql_managed_instance_scan_instance_operator_tde_identity_actions : [],
+    )
     not_actions = []
   }
 }
@@ -342,9 +355,8 @@ resource "azurerm_role_assignment" "dspm_sql_managed_instance_network_join" {
 #     Upwind's scan instance (as the storage DSPM default lets it read any blob);
 #   * with dspm_sql_managed_instances set, on each listed instance only.
 #
-# Key access for sources on a customer-managed TDE key is not granted here: the
-# grant goes to the scan instance's identity, which only exists once the
-# executor has created it.
+# Key access for sources on a customer-managed TDE key is not granted here but
+# to the scan instances' identity (see "Customer-managed TDE keys" below).
 
 locals {
   # Listed instances, de-duplicated case-insensitively (ARM IDs are
@@ -401,6 +413,11 @@ locals {
     "Microsoft.Sql/managedInstances/databases/readBackups/action",
     # Detect a customer-managed TDE key, and which one, before restoring.
     "Microsoft.Sql/managedInstances/encryptionProtector/read",
+    # List the keys registered on the source (the current protector and the
+    # keys it was rotated from), so the executor can check the ones a restore
+    # may need: a restore to a point after a key rotation still needs the old
+    # key (tested). Exposes key URIs only, never key material.
+    "Microsoft.Sql/managedInstances/keys/read",
   ]
 }
 
@@ -449,6 +466,80 @@ resource "azurerm_role_assignment" "dspm_sql_managed_instance_backup_reader" {
   principal_id = local.dspm_sql_managed_instance_principal_id
   scope        = each.value.scope
   depends_on   = [time_sleep.dspm_sql_managed_instance_backup_reader_wait[0]]
+}
+
+# endregion
+
+# region Customer-managed TDE keys
+#
+# A source on a customer-managed TDE key can only be restored by a scan
+# instance that can use the keys its backups were made under. The scan
+# instance uses its primary identity for that, so this creates a user-assigned
+# identity with a fixed name (upwind-cs-sqlmi-scan-identity-<orgId>, so the
+# executor finds it without being told), grants it Key Vault Crypto Service
+# Encryption User on each vault in dspm_sql_tde_key_vault_ids, and the executor
+# sets it as each scan instance's primary identity (assign/action in the Scan
+# Instance Operator role). Customer-facing rules (which vaults, RBAC only,
+# firewall, locks, who can act as the identity): module README, "customer-
+# managed TDE keys". Keep them there, not here or in the variable description.
+#
+# Created only when at least one vault is listed, and the executor attaches it
+# only if it exists; the Scan Instance Operator gets the identity read and
+# assign/action only then too. A customer whose sources all use service-managed keys gets
+# no identity and no change to the scan instance's primary identity (which the
+# scan instance also uses for Entra lookups when the worker signs in). Listing
+# the first vault later creates it, and the executor attaches it to existing
+# scan instances. Its lifetime follows the list and the feature: emptying the
+# list, or turning the feature (or DSPM, or CloudScanner in Outpost) off and on
+# again, recreates it with a new principal, so vault grants only belong in the
+# variable, never made directly to the identity.
+#
+# Who can act as the identity: in Outpost, the onboarding service principal's
+# CloudScanner deployer role (Microsoft.Compute/*, Microsoft.App/*, container
+# groups, deployment scripts and userAssignedIdentities/assign/action on the
+# orchestrator subscription) can run code as it, as it can as the existing disk
+# encryption identity. So can anyone with Contributor, or identity and compute
+# write, on the orchestrator subscription or the scan RG. The DSPM roles
+# themselves add no compute (see the tests).
+
+locals {
+  dspm_sql_managed_instance_tde_identity_name = "upwind-cs-sqlmi-scan-identity-${var.upwind_organization_id}"
+
+  # De-duplicated case-insensitively, keyed by the lower-cased ID, keeping the
+  # first spelling given (as for dspm_sql_managed_instances).
+  dspm_sql_managed_instance_tde_key_vaults = local.dspm_sql_managed_instance_enabled ? {
+    for key, spellings in { for id in var.dspm_sql_tde_key_vault_ids : lower(id) => id... } : key => spellings[0]
+  } : {}
+  dspm_sql_managed_instance_tde_enabled = length(local.dspm_sql_managed_instance_tde_key_vaults) > 0
+}
+
+resource "azurerm_user_assigned_identity" "dspm_sql_managed_instance_tde" {
+  count               = local.dspm_sql_managed_instance_tde_enabled ? 1 : 0
+  name                = local.dspm_sql_managed_instance_tde_identity_name
+  resource_group_name = azurerm_resource_group.dspm_sql_managed_instance[0].name
+  # The RG ignores changes to its own location, so this follows the RG's
+  # actual location, and scan instances in any region can use the identity.
+  location = azurerm_resource_group.dspm_sql_managed_instance[0].location
+  tags     = var.tags
+}
+
+resource "azurerm_role_assignment" "dspm_sql_managed_instance_tde_key_vault" {
+  for_each             = local.dspm_sql_managed_instance_tde_key_vaults
+  role_definition_name = "Key Vault Crypto Service Encryption User"
+  principal_id         = azurerm_user_assigned_identity.dspm_sql_managed_instance_tde[0].principal_id
+  # A new identity may not have replicated in Entra yet: with the type given,
+  # ARM doesn't look the principal up.
+  principal_type = "ServicePrincipal"
+  scope          = each.value
+
+  lifecycle {
+    # Keyed by the lower-cased vault ID, so within a key only the casing of the
+    # scope can differ. scope forces replacement, and Azure compares IDs
+    # ignoring case: re-casing an entry (e.g. a hand-written ID swapped for
+    # data.azurerm_key_vault.x.id) must not delete and recreate the grant,
+    # which fails on a vault with a delete lock.
+    ignore_changes = [scope]
+  }
 }
 
 # endregion
