@@ -103,18 +103,23 @@ locals {
     # instance had used before.
     "Microsoft.Sql/managedInstances/keys/read",
     "Microsoft.Sql/managedInstances/keys/write",
-    # Check whether the TDE key identity (below) exists, which it only does
-    # when vaults are listed, and set it as the scan instance's primary
-    # identity, at create or on an existing instance. This RG holds no other
-    # identity.
-    "Microsoft.ManagedIdentity/userAssignedIdentities/read",
-    "Microsoft.ManagedIdentity/userAssignedIdentities/assign/action",
     # Manual approval of the executor's own private endpoint.
     "Microsoft.Sql/managedInstances/privateEndpointConnections/read",
     "Microsoft.Sql/managedInstances/privateEndpointConnections/write",
     # Long-running operation status. managedDatabaseAzureAsyncOperation/read is
     # checked by ARM but is not a published operation, so only the wildcard works.
     "Microsoft.Sql/locations/*/read",
+  ]
+
+  # Only when TDE key vaults are listed (the TDE key identity below exists):
+  # check that the identity exists and set it as the scan instance's primary
+  # identity, at create or on an existing instance. assign/action lets the
+  # holder attach the identity, and so use its key access, to a resource it
+  # can write: here only the scan instances, since this RG holds no other
+  # identity. Without vaults there is nothing to attach, so it isn't granted.
+  dspm_sql_managed_instance_scan_instance_operator_tde_identity_actions = [
+    "Microsoft.ManagedIdentity/userAssignedIdentities/read",
+    "Microsoft.ManagedIdentity/userAssignedIdentities/assign/action",
   ]
 
   # Upwind DSPM Scan Network, on the same scan RG. Building the scan instance's
@@ -242,11 +247,14 @@ resource "azurerm_resource_group" "dspm_sql_managed_instance" {
 resource "azurerm_role_definition" "dspm_sql_managed_instance_scan_instance_operator" {
   count       = local.dspm_sql_managed_instance_enabled ? 1 : 0
   name        = "UpwindDSPMSQLMIScanInstanceOperator-${local.resource_suffix}"
-  description = "Upwind DSPM: create, start, stop and (on offboarding) delete the Azure SQL scan managed instance, set its TDE key identity, check and register customer-managed TDE keys on it, restore point-in-time copies onto it and drop them."
+  description = "Upwind DSPM: create, start, stop and (on offboarding) delete the Azure SQL scan managed instance, ${local.dspm_sql_managed_instance_tde_enabled ? "set its TDE key identity, " : ""}check and register customer-managed TDE keys on it, restore point-in-time copies onto it and drop them."
   scope       = azurerm_resource_group.dspm_sql_managed_instance[0].id
 
   permissions {
-    actions     = local.dspm_sql_managed_instance_scan_instance_operator_actions
+    actions = concat(
+      local.dspm_sql_managed_instance_scan_instance_operator_actions,
+      local.dspm_sql_managed_instance_tde_enabled ? local.dspm_sql_managed_instance_scan_instance_operator_tde_identity_actions : [],
+    )
     not_actions = []
   }
 }
@@ -472,7 +480,8 @@ resource "azurerm_role_assignment" "dspm_sql_managed_instance_backup_reader" {
 # managed TDE keys". Keep them there, not here or in the variable description.
 #
 # Created only when at least one vault is listed, and the executor attaches it
-# only if it exists. A customer whose sources all use service-managed keys gets
+# only if it exists; the Scan Instance Operator gets the identity read and
+# assign/action only then too. A customer whose sources all use service-managed keys gets
 # no identity and no change to the scan instance's primary identity (which the
 # scan instance also uses for Entra lookups when the worker signs in). Listing
 # the first vault later creates it, and the executor attaches it to existing

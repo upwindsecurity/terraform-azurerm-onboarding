@@ -23,10 +23,13 @@ A source managed instance whose TDE protector is a customer-managed key in Azure
 scan instance that can use the keys its backups were made under. When `dspm_sql_tde_key_vault_ids` lists at least one
 vault, the module creates a user-assigned identity for the scan instances, `upwind-cs-sqlmi-scan-identity-<orgId>` in
 `upwind-cs-sqlmi-rg-<orgId>`, and grants it the built-in **Key Vault Crypto Service Encryption User** role on each
-listed vault. Upwind sets it as each scan instance's primary identity, which uses it to wrap and unwrap the keys.
+listed vault. Upwind sets it as each scan instance's primary identity, which uses it to wrap and unwrap the keys. To do
+that, Upwind's principal also gets `Microsoft.ManagedIdentity/userAssignedIdentities/read` and `assign/action` on the scan
+resource group. `assign/action` lets its holder attach the identity, and so use its key access, to a resource it can
+write: here only the scan managed instances, since the resource group holds no other identity.
 
-If all your sources use service-managed keys, leave the list empty: no identity is created and the scan instances keep
-their own identity.
+If all your sources use service-managed keys, leave the list empty: no identity is created, Upwind gets no permission to
+attach one, and the scan instances keep their own identity.
 
 **What the grant allows.** The role allows reading keys and their metadata, wrapping and unwrapping with **every key in
 the vault**, and creating, reading and deleting the vault's Event Grid subscriptions. A vault dedicated to TDE keys is
@@ -37,6 +40,11 @@ recommended. Anything that can act as the identity has that access:
   orchestrator subscription and attach identities to it, so it could run code as this identity (as it can already
   as the CloudScanner disk encryption identity, which holds the same role on the orchestrator subscription);
 - in either mode, code run inside a scan instance that can call out using its managed identity.
+
+Upwind can already read the SQL data through the source's backups, so the extra exposure is mostly to whatever else
+shares the vault. To keep it small: list only vaults dedicated to SQL Managed Instance TDE keys, keep the vault firewall
+on with only trusted Microsoft services allowed, and alert on changes to the scan instances' identity and on key use in
+the vaults' logs.
 
 **Which vaults to list.** Every vault holding a key the source still needs or still has registered:
 

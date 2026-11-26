@@ -193,8 +193,6 @@ run "scan_instance_operator_has_scan_cycle_actions" {
         "Microsoft.Sql/managedInstances/crossSubscriptionPITR/action",
         "Microsoft.Sql/managedInstances/privateEndpointConnections/write",
         "Microsoft.Sql/managedInstances/validateAzureKeyVaultEncryptionKey/action",
-        "Microsoft.ManagedIdentity/userAssignedIdentities/read",
-        "Microsoft.ManagedIdentity/userAssignedIdentities/assign/action",
         "Microsoft.Sql/locations/*/read",
       ] : contains(azurerm_role_definition.dspm_sql_managed_instance_scan_instance_operator[0].permissions[0].actions, a)
     ])
@@ -663,6 +661,15 @@ run "tde_identity_in_scan_rg_with_fixed_name" {
     )
     error_message = "the TDE identity is upwind-cs-sqlmi-scan-identity-<orgId> in upwind-cs-sqlmi-rg-<orgId> (the executor derives both)"
   }
+  assert {
+    condition = alltrue([
+      for a in [
+        "Microsoft.ManagedIdentity/userAssignedIdentities/read",
+        "Microsoft.ManagedIdentity/userAssignedIdentities/assign/action",
+      ] : contains(azurerm_role_definition.dspm_sql_managed_instance_scan_instance_operator[0].permissions[0].actions, a)
+    ])
+    error_message = "with vaults listed, the Scan Instance Operator can check for the TDE identity and attach it to the scan instance"
+  }
 }
 
 # All sources on service-managed keys: no identity, so the scan instances keep
@@ -676,6 +683,13 @@ run "no_tde_identity_without_vaults" {
   assert {
     condition     = length(azurerm_user_assigned_identity.dspm_sql_managed_instance_tde) == 0 && length(azurerm_role_assignment.dspm_sql_managed_instance_tde_key_vault) == 0
     error_message = "with no vaults listed, no identity and no vault grants"
+  }
+  assert {
+    condition = length([
+      for a in azurerm_role_definition.dspm_sql_managed_instance_scan_instance_operator[0].permissions[0].actions : a
+      if startswith(a, "Microsoft.ManagedIdentity/")
+    ]) == 0
+    error_message = "with no vaults listed there is no identity to attach, so the Scan Instance Operator gets no identity read or assign/action"
   }
   assert {
     condition     = length(azurerm_resource_group.dspm_sql_managed_instance) == 1 && length(azurerm_role_definition.dspm_sql_managed_instance_scan_instance_operator) == 1
@@ -787,8 +801,10 @@ run "rejects_key_ids" {
 # outside these roles.
 run "dspm_roles_grant_no_compute" {
   command = plan
+  # With a vault listed, so the TDE identity actions are in the role too.
   variables {
     upwind_feature_dspm_azure_sql_managed_instance_enabled = true
+    dspm_sql_tde_key_vault_ids                             = ["/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-keys/providers/Microsoft.KeyVault/vaults/kv-tde-1"]
   }
 
   assert {
