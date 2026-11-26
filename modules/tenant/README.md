@@ -20,26 +20,63 @@ copies. The scope depends on `dspm_sql_managed_instances`:
 ## Azure SQL Managed Instance DSPM: customer-managed TDE keys
 
 A source managed instance whose TDE protector is a customer-managed key in Azure Key Vault can only be restored by a
-scan instance that can use that key. The module creates a user-assigned identity for the scan instances,
-`upwind-cs-sqlmi-scan-identity-<orgId>` in `upwind-cs-sqlmi-rg-<orgId>`, and grants it **Key Vault Crypto Service
-Encryption User** (get, wrap and unwrap key) on each vault in `dspm_sql_tde_key_vault_ids`. Upwind sets it as each scan
-instance's primary identity. Upwind's own principals never sign in as it: only the scan instances use it.
+scan instance that can use the keys its backups were made under. The module creates a user-assigned identity for the
+scan instances, `upwind-cs-sqlmi-scan-identity-<orgId>` in `upwind-cs-sqlmi-rg-<orgId>`, and grants it the built-in
+**Key Vault Crypto Service Encryption User** role on each vault in `dspm_sql_tde_key_vault_ids`. Upwind sets it as
+each scan instance's primary identity, which uses it to wrap and unwrap the keys.
 
-- **List every vault the source's protector has been in during its backup retention period.** A restore to a point
-  after a key rotation still needs the old key. Keep old vaults and keys for that long after rotating.
-- **The grant covers every key in the vault.** A vault dedicated to TDE keys is recommended.
-- **RBAC vaults only.** Vaults using access policies aren't supported yet: the role assignment has no effect there.
-  Managed HSM isn't supported.
-- **Firewall:** if the vault's firewall is on, allow trusted Microsoft services.
+**What the grant allows.** The role allows reading keys and their metadata, wrapping and unwrapping with **every key in
+the vault**, and creating, reading and deleting the vault's Event Grid subscriptions. A vault dedicated to TDE keys is
+recommended. Anything that can act as the identity has that access:
+
+- the scan instances it is attached to;
+- in Outpost, Upwind's onboarding service principal: its CloudScanner deployment role can create compute in the
+  orchestrator subscription and attach identities to it, so it could run code as this identity (as it can already
+  as the CloudScanner disk encryption identity, which holds the same role on the orchestrator subscription);
+- in either mode, code run inside a scan instance that can call out using its managed identity.
+
+**Which vaults to list.** Every vault holding a key the source still needs or still has registered:
+
+- **Every key a stored backup was made under.** Restoring to a point after a key rotation still needs the key the
+  backups before it were made under, until a full backup under the new key is older than the retention period (Azure
+  keeps backups up to a week longer than the configured retention). This also applies to a source moved from a
+  customer-managed key to a service-managed one: its old key stays needed until every stored backup was made without
+  it. Don't delete or disable those keys, or their vaults, while any backup needs them; your own point-in-time
+  restores need them too.
+- **Every key still registered on the source.** Before restoring, Upwind checks each key registered on the source
+  (`az sql mi key list`). Once no stored backup needs a retired key, remove it from the source
+  (`az sql mi key delete`) or keep its vault listed; otherwise the source is skipped.
+
+A source with a key Upwind can't use is skipped and reported as `key_inaccessible`, naming the key's vault. Sources
+that have only ever used service-managed keys need nothing here.
+
+**Requirements on the vaults.**
+
+- **RBAC permission model only.** Vaults using access policies aren't supported yet: the role assignment has no effect
+  there. Managed HSM isn't supported.
+- **Network:** if the vault's firewall is on, allow trusted Microsoft services. A vault in an enforced Network Security
+  Perimeter overrides that exception: add a perimeter inbound access rule for the orchestrator subscription.
+- **Resource locks:** a CanNotDelete lock on a vault (or its resource group or subscription), as Microsoft recommends
+  for TDE vaults, doesn't stop the grant being created but does stop it being deleted: removing a vault from the list,
+  turning the feature off and `terraform destroy` fail with `ScopeLocked` until the lock is lifted. Lift it for that
+  apply.
 - **Rights to apply:** assigning a role on a vault needs Owner, User Access Administrator or Role Based Access Control
   Administrator on it. Azure Policy or PIM rules on the vaults can make the apply fail.
+- **IDs known at plan time:** the grants are keyed by vault ID, so pass IDs built from names. A vault created in the
+  same apply (`azurerm_key_vault.tde.id`) fails the plan with "Invalid for_each argument".
+
+**Other notes.**
+
+- **Grant through the list only.** The identity is recreated, with a new principal, whenever the feature (or DSPM, or
+  CloudScanner in Outpost) is turned off and on again, which silently breaks a grant made to it directly.
+- **SaaS:** the identity needs the `Microsoft.ManagedIdentity` resource provider registered on the orchestrator
+  subscription. The SaaS examples register only `Microsoft.Compute`; add it to `resource_providers_to_register`, or
+  register it beforehand, or the apply fails with `MissingSubscriptionRegistration`.
 - **Auditing:** each restore unwraps the key, which shows in the vault's logs and may raise Defender for Key Vault
   alerts.
 - **Propagation:** a new grant can take several minutes to take effect.
 
-A source using a key Upwind can't use is skipped and reported as `key_inaccessible`, naming the key's vault. Sources on
-service-managed keys need nothing here.
-
+## Turning off Azure SQL Managed Instance DSPM
 
 Upwind removes the scan managed instances in `upwind-cs-sqlmi-rg-<orgId>`, and the network around them, with the
 roles this module grants. Turning the feature off removes those roles before Terraform deletes the resource group. So
@@ -47,7 +84,9 @@ the order matters:
 
 1. Offboard the scanners (or the organization) in Upwind first. This deletes the scan instances and their network,
    which empties the resource group.
-2. Then set `upwind_feature_dspm_azure_sql_managed_instance_enabled = false` (or run `terraform destroy`).
+2. Then set `upwind_feature_dspm_azure_sql_managed_instance_enabled = false` (or run `terraform destroy`). This also
+   removes the scan instances' identity and its grants on the vaults in `dspm_sql_tde_key_vault_ids`; lift any delete
+   lock on those vaults first.
 
 If you turn the feature off while the resource group still holds anything, the plan warns
 (`dspm_sql_managed_instance_offboard_first`) and lists what is left. `terraform destroy` does not run this check, so
@@ -198,8 +237,8 @@ No modules.
 | <a name="input_create_organizational_credentials"></a> [create\_organizational\_credentials](#input\_create\_organizational\_credentials) | Set to false to skip sending organizational credentials to Upwind. The default value for this variable should be set to true for onboarding deployments using 'terraform init && terraform apply' and set to false when offboarding using 'terraform destroy'. It is essential that it is reset appropriately for subsequent deploy / destroy attempts. | `bool` | `true` | no |
 | <a name="input_customer_snapshot_resource_group"></a> [customer\_snapshot\_resource\_group](#input\_customer\_snapshot\_resource\_group) | SaaS mode: name of the central snapshots resource group created in the orchestrator subscription (azure\_orchestrator\_subscription\_id). The Snapshot SP's snapshot write/delete roles (Disk Snapshot Contributor) are confined to this RG instead of being granted tenant-wide. Defaults to upwind-cs-rg-<upwind\_organization\_id> when empty. | `string` | `""` | no |
 | <a name="input_disable_function_scanning"></a> [disable\_function\_scanning](#input\_disable\_function\_scanning) | Legacy opt-out (poorly named): if true, disables the Storage Blob Data Reader / Storage File Data Privileged Reader grants that back DSPM. Retained for backwards compatibility; prefer upwind\_feature\_dspm\_enabled to control DSPM. DSPM is enabled only when upwind\_feature\_dspm\_enabled is true AND this is false. Setting it true also turns off Azure SQL Managed Instance DSPM (upwind\_feature\_dspm\_azure\_sql\_managed\_instance\_enabled). | `bool` | `false` | no |
-| <a name="input_dspm_sql_managed_instances"></a> [dspm\_sql\_managed\_instances](#input\_dspm\_sql\_managed\_instances) | Azure SQL MI DSPM, optional allowlist: ARM resource IDs of the source managed instances Upwind may restore from, e.g. ["/subscriptions/{sub-id}/resourceGroups/{rg}/providers/Microsoft.Sql/managedInstances/{name}"]. Empty (the default) grants the read-only Upwind DSPM SQL MI Backup Reader role (read the instances and their databases, read backups, read the TDE protector) at the CloudScanner scopes, like the storage DSPM data readers: managed instances created later are covered with no Terraform change, and which ones are scanned is chosen in the Upwind console with the scanner's capability selectors. Those selectors aren't enforced in Azure: with the restore rights the executor holds on the scan instance, the empty-list default lets the principal restore any managed instance database under the CloudScanner scopes (tenant-wide by default) into Upwind's scan instance, i.e. read all of their data, just as the storage DSPM default lets it read every blob. Set this list to limit that to the instances you name. When set, the role is assigned on the listed instances only, and an instance added later isn't scanned until it's added here and the module is re-applied. Only used when upwind\_feature\_dspm\_azure\_sql\_managed\_instance\_enabled is in effect. Sources on a customer-managed TDE key also need key access: see dspm\_sql\_tde\_key\_vault\_ids. | `list(string)` | `[]` | no |
-| <a name="input_dspm_sql_tde_key_vault_ids"></a> [dspm\_sql\_tde\_key\_vault\_ids](#input\_dspm\_sql\_tde\_key\_vault\_ids) | Azure SQL MI DSPM, customer-managed TDE keys: ARM resource IDs of the Key Vaults holding the TDE protector keys of the source managed instances, e.g. ["/subscriptions/{sub-id}/resourceGroups/{rg}/providers/Microsoft.KeyVault/vaults/{name}"]. The scan instances' user-assigned identity (upwind-cs-sqlmi-scan-identity-<orgId>, in upwind-cs-sqlmi-rg-<orgId>) gets Key Vault Crypto Service Encryption User (get, wrap and unwrap key) on each vault. List every vault that has held a source's TDE protector within its backup retention period: a restore to a point after a key rotation still needs the old key. A source using a key in an unlisted vault is skipped and reported as key\_inaccessible; sources using service-managed keys need nothing here. The grant covers every key in the vault, so a vault dedicated to TDE keys is recommended. The vaults must use the Azure RBAC permission model (access-policy vaults aren't supported yet), and if a vault's firewall is on, it must allow trusted Microsoft services. Managed HSM isn't supported. Applying needs the right to assign roles on each vault (e.g. Owner or User Access Administrator), and a grant can take several minutes to take effect. Only used when upwind\_feature\_dspm\_azure\_sql\_managed\_instance\_enabled is in effect. | `list(string)` | `[]` | no |
+| <a name="input_dspm_sql_managed_instances"></a> [dspm\_sql\_managed\_instances](#input\_dspm\_sql\_managed\_instances) | Azure SQL MI DSPM, optional allowlist: ARM resource IDs of the source managed instances Upwind may restore from, e.g. ["/subscriptions/{sub-id}/resourceGroups/{rg}/providers/Microsoft.Sql/managedInstances/{name}"]. Empty (the default) grants the read-only Upwind DSPM SQL MI Backup Reader role (read the instances and their databases, read backups, read the TDE protector and the keys registered on the instance) at the CloudScanner scopes, like the storage DSPM data readers: managed instances created later are covered with no Terraform change, and which ones are scanned is chosen in the Upwind console with the scanner's capability selectors. Those selectors aren't enforced in Azure: with the restore rights the executor holds on the scan instance, the empty-list default lets the principal restore any managed instance database under the CloudScanner scopes (tenant-wide by default) into Upwind's scan instance, i.e. read all of their data, just as the storage DSPM default lets it read every blob. Set this list to limit that to the instances you name. When set, the role is assigned on the listed instances only, and an instance added later isn't scanned until it's added here and the module is re-applied. Only used when upwind\_feature\_dspm\_azure\_sql\_managed\_instance\_enabled is in effect. Sources on a customer-managed TDE key also need key access: see dspm\_sql\_tde\_key\_vault\_ids. | `list(string)` | `[]` | no |
+| <a name="input_dspm_sql_tde_key_vault_ids"></a> [dspm\_sql\_tde\_key\_vault\_ids](#input\_dspm\_sql\_tde\_key\_vault\_ids) | Azure SQL MI DSPM, customer-managed TDE keys: ARM resource IDs of the Key Vaults holding the source managed instances' TDE keys, e.g. ["/subscriptions/{sub-id}/resourceGroups/{rg}/providers/Microsoft.KeyVault/vaults/{name}"]. The scan instances' user-assigned identity (upwind-cs-sqlmi-scan-identity-<orgId>, in upwind-cs-sqlmi-rg-<orgId>) gets the built-in Key Vault Crypto Service Encryption User role on each vault. Sources whose keys Upwind can't use are skipped and reported as key\_inaccessible. Which vaults to list, and the requirements on them (RBAC permission model, firewall, resource locks, rights to apply), are in the module README under "customer-managed TDE keys". Pass IDs known at plan time (built from names), not attributes of a vault created in the same apply. Only used when upwind\_feature\_dspm\_azure\_sql\_managed\_instance\_enabled is in effect. | `list(string)` | `[]` | no |
 | <a name="input_dspm_storage_accounts"></a> [dspm\_storage\_accounts](#input\_dspm\_storage\_accounts) | Optional list of storage account resource IDs to scope the DSPM data-plane grants (Storage Blob Data Reader / Storage File Data Privileged Reader) to. When set, the grants are assigned only on these accounts instead of every cloudscanner scope; storage accounts created later are invisible to DSPM and to Azure Function scanning's AAD fallback until the list is refreshed and re-applied. An EMPTY list is treated as unset and falls back to the broad scopes - to remove the grants entirely use upwind\_feature\_dspm\_enabled = false. Use scripts/list-function-storage-accounts.sh to discover candidates. Replaces the deprecated function\_storage\_accounts (this variable wins when both are set). Example: ["/subscriptions/{sub-id}/resourceGroups/{rg}/providers/Microsoft.Storage/storageAccounts/{name}"] | `list(string)` | `null` | no |
 | <a name="input_fetcher_app_client_id"></a> [fetcher\_app\_client\_id](#input\_fetcher\_app\_client\_id) | Client ID of the org's Upwind-minted multi-tenant Fetcher (WIF) app registration, shown in the Upwind console. SaaS mode: its service principal is materialized in the customer tenant and granted, at the tenant-root management group, the outpost app-registration role set: the built-in read roles (var.azure\_roles) + a custom role (var.azure\_custom\_role\_permissions). WIF mode: the same service principal is materialized and granted the full self-hosted role set instead. Required when saas\_enabled or use\_workload\_identity\_federation is true, unless fetcher\_app\_service\_principal\_object\_id is provided. | `string` | `""` | no |
 | <a name="input_fetcher_app_service_principal_object_id"></a> [fetcher\_app\_service\_principal\_object\_id](#input\_fetcher\_app\_service\_principal\_object\_id) | SaaS or WIF mode (optional): object ID of an existing service principal for the org's Fetcher (WIF) app registration in the customer tenant. Provide this when the SP has already been created out-of-band (e.g. via admin consent / `az ad sp create`) and the Terraform runner lacks Microsoft Graph permissions to create it. When set, the module skips creating the service principal and assigns roles to this object ID directly; fetcher\_app\_client\_id is then not required. | `string` | `""` | no |
@@ -210,7 +249,7 @@ No modules.
 | <a name="input_key_vault_logging_retention_in_days"></a> [key\_vault\_logging\_retention\_in\_days](#input\_key\_vault\_logging\_retention\_in\_days) | The number of days to retain logs in the Log Analytics Workspace. Only relevant if key\_vault\_logging\_enabled is true. | `number` | `30` | no |
 | <a name="input_key_vault_private_network"></a> [key\_vault\_private\_network](#input\_key\_vault\_private\_network) | Whether to provision the Key Vault with public network access fully disabled (private networking). When true, Terraform cannot reach the vault to write secrets, so the module will NOT create the 'upwind-client-id' and 'upwind-client-secret' secrets - you must add them manually (see the key\_vault\_name output). CloudScanner infrastructure is still provisioned without needing scanner\_client\_id/scanner\_client\_secret. Cannot be combined with key\_vault\_deny\_traffic. | `bool` | `false` | no |
 | <a name="input_resource_suffix"></a> [resource\_suffix](#input\_resource\_suffix) | The suffix to append to all resources created by this module. | `string` | `""` | no |
-| <a name="input_saas_enabled"></a> [saas\_enabled](#input\_saas\_enabled) | Enable SaaS (provider-hosted, secretless) onboarding. When true, the customer tenant only consents to Upwind's multi-tenant Snapshot and Fetcher app registrations and assigns them scoped roles at management-group (tenant-root) scope. No app registration, Key Vault, managed identities, custom roles, scanner credentials, or Upwind API calls are created. Self-hosted resources are skipped. Defaults to false (self-hosted, unchanged). | `bool` | `false` | no |
+| <a name="input_saas_enabled"></a> [saas\_enabled](#input\_saas\_enabled) | Enable SaaS (provider-hosted, secretless) onboarding. When true, the customer tenant only consents to Upwind's multi-tenant Snapshot and Fetcher app registrations and assigns them scoped roles at management-group (tenant-root) scope. No app registration, Key Vault, managed identities, custom roles, scanner credentials, or Upwind API calls are created, except that Azure SQL MI DSPM (upwind\_feature\_dspm\_azure\_sql\_managed\_instance\_enabled), when on, creates its custom roles and the scan instances' user-assigned identity, which needs Microsoft.ManagedIdentity registered on the orchestrator subscription (see the module README). Self-hosted resources are skipped. Defaults to false (self-hosted, unchanged). | `bool` | `false` | no |
 | <a name="input_scanner_client_id"></a> [scanner\_client\_id](#input\_scanner\_client\_id) | The client ID used for authentication with the Upwind CloudScanner Service. | `string` | `""` | no |
 | <a name="input_scanner_client_secret"></a> [scanner\_client\_secret](#input\_scanner\_client\_secret) | The client secret for authentication with the Upwind CloudScanner Service. | `string` | `""` | no |
 | <a name="input_skip_app_service_provider_registration"></a> [skip\_app\_service\_provider\_registration](#input\_skip\_app\_service\_provider\_registration) | DEPRECATED: We have removed the need for this variable. Set to true to skip the Microsoft.App provider registration, recommended if running on Windows. If resource\_providers\_to\_register is set to ["Microsoft.App"] on the azurerm provider, this can safely be set to true. | `bool` | `false` | no |
@@ -225,7 +264,7 @@ No modules.
 | <a name="input_upwind_integration_endpoint"></a> [upwind\_integration\_endpoint](#input\_upwind\_integration\_endpoint) | The Integration API endpoint. | `string` | `"https://integration.upwind.io"` | no |
 | <a name="input_upwind_organization_id"></a> [upwind\_organization\_id](#input\_upwind\_organization\_id) | The identifier of the Upwind organization to integrate with. | `string` | n/a | yes |
 | <a name="input_upwind_region"></a> [upwind\_region](#input\_upwind\_region) | The region where the Upwind components will be deployed. Must be 'us', 'eu', 'ap', 'au', 'me', or 'pdcXX' (e.g. 'pdc02') | `string` | `"us"` | no |
-| <a name="input_use_workload_identity_federation"></a> [use\_workload\_identity\_federation](#input\_use\_workload\_identity\_federation) | Self-hosted (outpost) mode: authenticate via workload identity federation instead of a client secret (UP-3278). When true (the default), the module uses WIF ONLY IF a WIF identity is available - i.e. fetcher\_app\_client\_id or fetcher\_app\_service\_principal\_object\_id is set, which happens when the org has azure-auth-service enabled and the Upwind console has surfaced the Fetcher app. In WIF mode no app registration or client secret is created in this tenant and no credentials are submitted to Upwind; instead the service principal of the org's Upwind-minted WIF app registration (the same Fetcher app the SaaS mode consents) is materialized here and granted the self-hosted role set. AUTO-FALLBACK: if no fetcher\_* input is provided (org WITHOUT azure auth service, or an existing client-secret deployment), the module keeps the legacy client-secret flow instead of failing - so those customers can still onboard. Set false to pin the legacy client-secret flow explicitly regardless of fetcher\_* inputs. Ignored when saas\_enabled is true. | `bool` | `true` | no |
+| <a name="input_use_workload_identity_federation"></a> [use\_workload\_identity\_federation](#input\_use\_workload\_identity\_federation) | Self-hosted (outpost) mode: authenticate via workload identity federation instead of a client secret (UP-3278). When true (the default), the module uses WIF ONLY IF a WIF identity is available - i.e. fetcher\_app\_client\_id or fetcher\_app\_service\_principal\_object\_id is set, which happens when the org has azure-auth-service enabled and the Upwind console has surfaced the Fetcher app. In WIF mode no app registration or client secret is created in this tenant and no credentials are submitted to Upwind; instead the service principal of the org's Upwind-minted WIF app registration (the same Fetcher app the SaaS mode consents) is materialized here and granted the self-hosted role set. AUTO-FALLBACK: if no fetcher\_*input is provided (org WITHOUT azure auth service, or an existing client-secret deployment), the module keeps the legacy client-secret flow instead of failing - so those customers can still onboard. Set false to pin the legacy client-secret flow explicitly regardless of fetcher\_* inputs. Ignored when saas\_enabled is true. | `bool` | `true` | no |
 
 ## Outputs
 

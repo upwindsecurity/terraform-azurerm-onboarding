@@ -145,11 +145,11 @@ run "scan_instance_operator_has_scan_cycle_actions" {
     error_message = "Scan Instance Operator must let offboarding discard the scan instance"
   }
   assert {
-    condition = length(setintersection(
-      toset(azurerm_role_definition.dspm_sql_managed_instance_scan_instance_operator[0].permissions[0].actions),
-      toset(["Microsoft.Sql/managedInstances/keys/read", "Microsoft.Sql/managedInstances/keys/write"])
-    )) == 0
-    error_message = "keys are never registered on the scan instance (vault access is enough to restore), so no keys/read or keys/write on it"
+    condition = alltrue([
+      for a in ["Microsoft.Sql/managedInstances/keys/read", "Microsoft.Sql/managedInstances/keys/write"] :
+      contains(azurerm_role_definition.dspm_sql_managed_instance_scan_instance_operator[0].permissions[0].actions, a)
+    ])
+    error_message = "the executor must be able to register a source's TDE key on the scan instance (not yet shown unnecessary, UP-14344)"
   }
   assert {
     condition = length(setintersection(
@@ -276,6 +276,7 @@ run "enabled_without_cloudscanner_creates_nothing_and_warns" {
     scanner_client_id                                      = ""
     scanner_client_secret                                  = ""
     dspm_sql_managed_instances                             = ["/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-data/providers/Microsoft.Sql/managedInstances/sales-mi"]
+    dspm_sql_tde_key_vault_ids                             = ["/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-keys/providers/Microsoft.KeyVault/vaults/kv-tde-1"]
     upwind_feature_dspm_azure_sql_managed_instance_enabled = true
   }
   expect_failures = [check.dspm_sql_managed_instance_needs_cloudscanner]
@@ -289,6 +290,8 @@ run "enabled_without_cloudscanner_creates_nothing_and_warns" {
       length(azurerm_role_assignment.dspm_sql_managed_instance_scan_instance_operator) == 0 &&
       length(azurerm_role_assignment.dspm_sql_managed_instance_scan_network) == 0 &&
       length(azurerm_role_definition.dspm_sql_managed_instance_backup_reader) == 0 &&
+      length(azurerm_user_assigned_identity.dspm_sql_managed_instance_tde) == 0 &&
+      length(azurerm_role_assignment.dspm_sql_managed_instance_tde_key_vault) == 0 &&
       length(azurerm_role_assignment.dspm_sql_managed_instance_backup_reader) == 0 &&
       length(azurerm_role_assignment.dspm_sql_managed_instance_network_join) == 0 &&
       length(time_sleep.dspm_sql_managed_instance_role_definition_wait) == 0
@@ -304,6 +307,7 @@ run "dspm_opt_out_wins" {
   variables {
     upwind_feature_dspm_enabled                            = false
     dspm_sql_managed_instances                             = ["/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-data/providers/Microsoft.Sql/managedInstances/sales-mi"]
+    dspm_sql_tde_key_vault_ids                             = ["/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-keys/providers/Microsoft.KeyVault/vaults/kv-tde-1"]
     upwind_feature_dspm_azure_sql_managed_instance_enabled = true
   }
 
@@ -316,6 +320,8 @@ run "dspm_opt_out_wins" {
       length(azurerm_role_assignment.dspm_sql_managed_instance_scan_instance_operator) == 0 &&
       length(azurerm_role_assignment.dspm_sql_managed_instance_scan_network) == 0 &&
       length(azurerm_role_definition.dspm_sql_managed_instance_backup_reader) == 0 &&
+      length(azurerm_user_assigned_identity.dspm_sql_managed_instance_tde) == 0 &&
+      length(azurerm_role_assignment.dspm_sql_managed_instance_tde_key_vault) == 0 &&
       length(azurerm_role_assignment.dspm_sql_managed_instance_backup_reader) == 0 &&
       length(azurerm_role_assignment.dspm_sql_managed_instance_network_join) == 0
     )
@@ -328,6 +334,7 @@ run "legacy_dspm_opt_out_wins" {
   variables {
     disable_function_scanning                              = true
     dspm_sql_managed_instances                             = ["/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-data/providers/Microsoft.Sql/managedInstances/sales-mi"]
+    dspm_sql_tde_key_vault_ids                             = ["/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-keys/providers/Microsoft.KeyVault/vaults/kv-tde-1"]
     upwind_feature_dspm_azure_sql_managed_instance_enabled = true
   }
 
@@ -340,6 +347,8 @@ run "legacy_dspm_opt_out_wins" {
       length(azurerm_role_assignment.dspm_sql_managed_instance_scan_instance_operator) == 0 &&
       length(azurerm_role_assignment.dspm_sql_managed_instance_scan_network) == 0 &&
       length(azurerm_role_definition.dspm_sql_managed_instance_backup_reader) == 0 &&
+      length(azurerm_user_assigned_identity.dspm_sql_managed_instance_tde) == 0 &&
+      length(azurerm_role_assignment.dspm_sql_managed_instance_tde_key_vault) == 0 &&
       length(azurerm_role_assignment.dspm_sql_managed_instance_backup_reader) == 0 &&
       length(azurerm_role_assignment.dspm_sql_managed_instance_network_join) == 0
     )
@@ -694,6 +703,13 @@ run "tde_key_vault_grants_per_vault" {
       "/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/rg-old/providers/Microsoft.KeyVault/vaults/kv-tde-old",
     ]) && length(azurerm_role_assignment.dspm_sql_managed_instance_tde_key_vault) == 2
     error_message = "one grant per vault at vault scope, de-duplicated case-insensitively keeping the first spelling"
+  }
+  assert {
+    condition = toset(keys(azurerm_role_assignment.dspm_sql_managed_instance_tde_key_vault)) == toset([
+      "/subscriptions/11111111-1111-1111-1111-111111111111/resourcegroups/rg-keys/providers/microsoft.keyvault/vaults/kv-tde-1",
+      "/subscriptions/22222222-2222-2222-2222-222222222222/resourcegroups/rg-old/providers/microsoft.keyvault/vaults/kv-tde-old",
+    ])
+    error_message = "grants are keyed by the lower-cased vault ID, so re-casing a listed vault keeps its grant instead of racing a destroy and a create on the same scope"
   }
   assert {
     condition = alltrue([

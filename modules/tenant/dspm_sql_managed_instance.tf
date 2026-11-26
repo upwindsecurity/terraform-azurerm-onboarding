@@ -94,9 +94,14 @@ locals {
     "Microsoft.Sql/managedInstances/azureADOnlyAuthentications/read",
     "Microsoft.Sql/managedInstances/azureADOnlyAuthentications/write",
     # Customer-managed TDE: before restoring, check the scan instance can use
-    # each of the source's keys. Keys are never registered on the scan
-    # instance: vault access is enough to restore (tested, UP-14344).
+    # each of the source's keys.
     "Microsoft.Sql/managedInstances/validateAzureKeyVaultEncryptionKey/action",
+    # Customer-managed TDE: register a source's key on the scan instance if
+    # the restore turns out to need it linked there. Not yet shown either way:
+    # the lab restore that worked without registering used a key the scan
+    # instance had used before (UP-14344).
+    "Microsoft.Sql/managedInstances/keys/read",
+    "Microsoft.Sql/managedInstances/keys/write",
     # Set the TDE key identity (below) as the scan instance's primary identity,
     # at create or on an existing instance. This RG holds no other identity.
     "Microsoft.ManagedIdentity/userAssignedIdentities/assign/action",
@@ -249,7 +254,7 @@ resource "azurerm_resource_group" "dspm_sql_managed_instance" {
 resource "azurerm_role_definition" "dspm_sql_managed_instance_scan_instance_operator" {
   count       = local.dspm_sql_managed_instance_enabled ? 1 : 0
   name        = "UpwindDSPMSQLMIScanInstanceOperator-${local.resource_suffix}"
-  description = "Upwind DSPM: create, start, stop and (on offboarding) delete the Azure SQL scan managed instance, restore point-in-time copies onto it and drop them."
+  description = "Upwind DSPM: create, start, stop and (on offboarding) delete the Azure SQL scan managed instance, set its TDE key identity, check and register customer-managed TDE keys on it, restore point-in-time copies onto it and drop them."
   scope       = azurerm_resource_group.dspm_sql_managed_instance[0].id
 
   permissions {
@@ -408,9 +413,10 @@ locals {
     "Microsoft.Sql/managedInstances/databases/readBackups/action",
     # Detect a customer-managed TDE key, and which one, before restoring.
     "Microsoft.Sql/managedInstances/encryptionProtector/read",
-    # List every key the source has used, so each one is checked before
-    # restoring: a restore to a point after a key rotation still needs the old
-    # key (tested, UP-14344).
+    # List the keys registered on the source (the current protector and the
+    # keys it was rotated from), so the executor can check the ones a restore
+    # may need: a restore to a point after a key rotation still needs the old
+    # key (tested, UP-14344). Exposes key URIs only, never key material.
     "Microsoft.Sql/managedInstances/keys/read",
   ]
 }
@@ -466,34 +472,28 @@ resource "azurerm_role_assignment" "dspm_sql_managed_instance_backup_reader" {
 
 # region Customer-managed TDE keys
 #
-# A source whose TDE protector is a customer-managed key in Azure Key Vault can
-# only be restored by a scan instance that can use every key that protected a
-# backup in the restore's chain (the current key and, after a rotation, the
-# older ones). The scan instance uses its primary identity for that, so:
-#   * this user-assigned identity is created for the scan instances, with a
-#     fixed name, upwind-cs-sqlmi-scan-identity-<orgId>, so the executor can
-#     find it without being told;
-#   * it gets Key Vault Crypto Service Encryption User (get, wrap and unwrap
-#     key) on each vault in dspm_sql_tde_key_vault_ids, once, here: Upwind
-#     can't add or change a vault grant later;
-#   * the executor sets it as each scan instance's primary identity
-#     (assign/action in the Scan Instance Operator role).
-# Nothing obtains a token for this identity: the executor and the worker keep
-# signing in as themselves. Only the scan instances use it, to unwrap the keys.
+# A source on a customer-managed TDE key can only be restored by a scan
+# instance that can use the keys its backups were made under. The scan
+# instance uses its primary identity for that, so this creates a user-assigned
+# identity with a fixed name (upwind-cs-sqlmi-scan-identity-<orgId>, so the
+# executor finds it without being told), grants it Key Vault Crypto Service
+# Encryption User on each vault in dspm_sql_tde_key_vault_ids, and the executor
+# sets it as each scan instance's primary identity (assign/action in the Scan
+# Instance Operator role). Customer-facing rules (which vaults, RBAC only,
+# firewall, locks, who can act as the identity): module README, "customer-
+# managed TDE keys". Keep them there, not here or in the variable description.
 #
 # Created whenever the feature is on, even with no vaults listed, so the
-# executor always attaches the same identity and a vault granted later (here
-# or by the customer directly) works with no change on Upwind's side.
+# executor can always attach it. Its lifetime follows the feature: turning the
+# feature (or DSPM, or CloudScanner in Outpost) off and on again recreates it
+# with a new principal, so vault grants only belong in the variable, never
+# made directly to the identity.
 #
-# Not supported yet: vaults in access-policy mode (the role assignment is made
-# but Key Vault ignores it, so the executor's key check skips those sources
-# with key_inaccessible) and Managed HSM (rejected by the variable).
-#
-# Outpost: the onboarding service principal's CloudScanner deployer role holds
-# Microsoft.Compute/* and userAssignedIdentities/assign/action on the whole
-# orchestrator subscription, so it could attach this identity to compute of its
-# own, as it can the existing disk encryption identity. The DSPM roles add no
-# compute write (see the tests).
+# Who can act as the identity: in Outpost, the onboarding service principal's
+# CloudScanner deployer role (Microsoft.Compute/*, Microsoft.App/*, container
+# groups, deployment scripts and userAssignedIdentities/assign/action on the
+# orchestrator subscription) can run code as it, as it can as the existing disk
+# encryption identity. The DSPM roles themselves add no compute (see the tests).
 
 locals {
   dspm_sql_managed_instance_tde_identity_name = "upwind-cs-sqlmi-scan-identity-${var.upwind_organization_id}"
@@ -509,15 +509,10 @@ resource "azurerm_user_assigned_identity" "dspm_sql_managed_instance_tde" {
   count               = local.dspm_sql_managed_instance_enabled ? 1 : 0
   name                = local.dspm_sql_managed_instance_tde_identity_name
   resource_group_name = azurerm_resource_group.dspm_sql_managed_instance[0].name
-  location            = azurerm_resource_group.dspm_sql_managed_instance[0].location
-  tags                = var.tags
-
-  lifecycle {
-    # As for the RG: the location is only where the identity's metadata lives,
-    # and scan instances in any region can use it. Replacing it would detach
-    # it from every scan instance.
-    ignore_changes = [location]
-  }
+  # The RG ignores changes to its own location, so this follows the RG's
+  # actual location, and scan instances in any region can use the identity.
+  location = azurerm_resource_group.dspm_sql_managed_instance[0].location
+  tags     = var.tags
 }
 
 resource "azurerm_role_assignment" "dspm_sql_managed_instance_tde_key_vault" {

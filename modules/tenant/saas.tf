@@ -1,7 +1,8 @@
 # region SaaS (provider-hosted, secretless) onboarding
 #
 # In SaaS mode (var.saas_enabled) the customer tenant holds no secrets, managed
-# identities, or compute. The customer consents to Upwind's two multi-tenant app
+# identities, or compute, except what Azure SQL MI DSPM creates when it is on
+# (dspm_sql_managed_instance.tf: the scan instances and their identity). The customer consents to Upwind's two multi-tenant app
 # registrations (Snapshot + Fetcher); this materializes their service principals
 # in the customer tenant, which are then granted scoped ARM roles. Scope follows
 # the same three options as the outpost path - Tenant (tenant-root MG), Management
