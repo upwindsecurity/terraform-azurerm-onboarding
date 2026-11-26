@@ -134,6 +134,7 @@ run "scan_instance_operator_has_scan_cycle_actions" {
         "Microsoft.Sql/managedInstances/crossSubscriptionPITR/action",
         "Microsoft.Sql/managedInstances/privateEndpointConnections/write",
         "Microsoft.Sql/managedInstances/validateAzureKeyVaultEncryptionKey/action",
+        "Microsoft.ManagedIdentity/userAssignedIdentities/read",
         "Microsoft.ManagedIdentity/userAssignedIdentities/assign/action",
         "Microsoft.Sql/locations/*/read",
       ] : contains(azurerm_role_definition.dspm_sql_managed_instance_scan_instance_operator[0].permissions[0].actions, a)
@@ -643,12 +644,13 @@ run "feature_off_other_rg_does_not_warn" {
 
 # region Customer-managed TDE keys
 
-# The scan instances' identity: always created with the feature, in the scan RG,
+# The scan instances' identity: created once a vault is listed, in the scan RG,
 # under the fixed name the executor derives from the org ID.
 run "tde_identity_in_scan_rg_with_fixed_name" {
   command = plan
   variables {
     upwind_feature_dspm_azure_sql_managed_instance_enabled = true
+    dspm_sql_tde_key_vault_ids                             = ["/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-keys/providers/Microsoft.KeyVault/vaults/kv-tde-1"]
   }
 
   assert {
@@ -658,9 +660,23 @@ run "tde_identity_in_scan_rg_with_fixed_name" {
     )
     error_message = "the TDE identity is upwind-cs-sqlmi-scan-identity-<orgId> in upwind-cs-sqlmi-rg-<orgId> (the executor derives both)"
   }
+}
+
+# All sources on service-managed keys: no identity, so the scan instances keep
+# their own primary identity, and SaaS needs no Microsoft.ManagedIdentity.
+run "no_tde_identity_without_vaults" {
+  command = plan
+  variables {
+    upwind_feature_dspm_azure_sql_managed_instance_enabled = true
+  }
+
   assert {
-    condition     = length(azurerm_role_assignment.dspm_sql_managed_instance_tde_key_vault) == 0
-    error_message = "no vaults listed, no vault grants"
+    condition     = length(azurerm_user_assigned_identity.dspm_sql_managed_instance_tde) == 0 && length(azurerm_role_assignment.dspm_sql_managed_instance_tde_key_vault) == 0
+    error_message = "with no vaults listed, no identity and no vault grants"
+  }
+  assert {
+    condition     = length(azurerm_resource_group.dspm_sql_managed_instance) == 1 && length(azurerm_role_definition.dspm_sql_managed_instance_scan_instance_operator) == 1
+    error_message = "the rest of SQL MI DSPM is unaffected by an empty vault list"
   }
 }
 
@@ -671,6 +687,7 @@ run "saas_creates_the_tde_identity_too" {
     snapshot_app_service_principal_object_id               = "00000000-0000-0000-0000-00000000000a"
     fetcher_app_service_principal_object_id                = "00000000-0000-0000-0000-00000000000b"
     upwind_feature_dspm_azure_sql_managed_instance_enabled = true
+    dspm_sql_tde_key_vault_ids                             = ["/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-keys/providers/Microsoft.KeyVault/vaults/kv-tde-1"]
   }
 
   assert {
@@ -781,10 +798,11 @@ run "dspm_roles_grant_no_compute" {
       startswith(a, "Microsoft.Sql/") || startswith(a, "Microsoft.Network/") ||
       contains([
         "Microsoft.Resources/subscriptions/resourceGroups/read",
+        "Microsoft.ManagedIdentity/userAssignedIdentities/read",
         "Microsoft.ManagedIdentity/userAssignedIdentities/assign/action",
       ], a)
     ])
-    error_message = "the DSPM orchestrator roles may only grant Microsoft.Sql, Microsoft.Network, RG read and identity assign actions: anything that can run code could sign in as the TDE identity"
+    error_message = "the DSPM orchestrator roles may only grant Microsoft.Sql, Microsoft.Network, RG read and identity read and assign actions: anything that can run code could sign in as the TDE identity"
   }
   assert {
     condition = alltrue([

@@ -11,8 +11,9 @@
 #   * orchestrator side (Account B): one resource group,
 #     upwind-cs-sqlmi-rg-<orgId>, for the scan instances and everything the
 #     executor creates around them, and the executor's custom roles on it;
-#   * the scan instances' user-assigned identity in that RG, and its key grant
-#     on each Key Vault in dspm_sql_tde_key_vault_ids (customer-managed TDE);
+#   * only when dspm_sql_tde_key_vault_ids lists vaults (customer-managed
+#     TDE): the scan instances' user-assigned identity in that RG, and its key
+#     grant on each of them;
 #   * source side (Account A): a read-only role on the customer's source managed
 #     instances (by default at the CloudScanner scopes; optionally only on the
 #     instances listed in dspm_sql_managed_instances), so the executor can
@@ -102,8 +103,11 @@ locals {
     # instance had used before (UP-14344).
     "Microsoft.Sql/managedInstances/keys/read",
     "Microsoft.Sql/managedInstances/keys/write",
-    # Set the TDE key identity (below) as the scan instance's primary identity,
-    # at create or on an existing instance. This RG holds no other identity.
+    # Check whether the TDE key identity (below) exists, which it only does
+    # when vaults are listed, and set it as the scan instance's primary
+    # identity, at create or on an existing instance. This RG holds no other
+    # identity.
+    "Microsoft.ManagedIdentity/userAssignedIdentities/read",
     "Microsoft.ManagedIdentity/userAssignedIdentities/assign/action",
     # Manual approval of the executor's own private endpoint.
     "Microsoft.Sql/managedInstances/privateEndpointConnections/read",
@@ -483,11 +487,15 @@ resource "azurerm_role_assignment" "dspm_sql_managed_instance_backup_reader" {
 # firewall, locks, who can act as the identity): module README, "customer-
 # managed TDE keys". Keep them there, not here or in the variable description.
 #
-# Created whenever the feature is on, even with no vaults listed, so the
-# executor can always attach it. Its lifetime follows the feature: turning the
-# feature (or DSPM, or CloudScanner in Outpost) off and on again recreates it
-# with a new principal, so vault grants only belong in the variable, never
-# made directly to the identity.
+# Created only when at least one vault is listed, and the executor attaches it
+# only if it exists. A customer whose sources all use service-managed keys gets
+# no identity and no change to the scan instance's primary identity (which the
+# scan instance also uses for Entra lookups when the worker signs in). Listing
+# the first vault later creates it, and the executor attaches it to existing
+# scan instances. Its lifetime follows the list and the feature: emptying the
+# list, or turning the feature (or DSPM, or CloudScanner in Outpost) off and on
+# again, recreates it with a new principal, so vault grants only belong in the
+# variable, never made directly to the identity.
 #
 # Who can act as the identity: in Outpost, the onboarding service principal's
 # CloudScanner deployer role (Microsoft.Compute/*, Microsoft.App/*, container
@@ -503,10 +511,11 @@ locals {
   dspm_sql_managed_instance_tde_key_vaults = local.dspm_sql_managed_instance_enabled ? {
     for key, spellings in { for id in var.dspm_sql_tde_key_vault_ids : lower(id) => id... } : key => spellings[0]
   } : {}
+  dspm_sql_managed_instance_tde_enabled = length(local.dspm_sql_managed_instance_tde_key_vaults) > 0
 }
 
 resource "azurerm_user_assigned_identity" "dspm_sql_managed_instance_tde" {
-  count               = local.dspm_sql_managed_instance_enabled ? 1 : 0
+  count               = local.dspm_sql_managed_instance_tde_enabled ? 1 : 0
   name                = local.dspm_sql_managed_instance_tde_identity_name
   resource_group_name = azurerm_resource_group.dspm_sql_managed_instance[0].name
   # The RG ignores changes to its own location, so this follows the RG's
