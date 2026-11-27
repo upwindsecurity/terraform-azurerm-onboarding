@@ -1,6 +1,6 @@
 output "upwind_next_step" {
   description = "The instructions for the next step in the process."
-  value       = "Please proceed to the Upwind console at https://console.upwind.io to continue with the next steps of the process."
+  value       = "Please proceed to the Upwind console at ${local.upwind_console_url} to continue with the next steps of the process."
 }
 
 output "azure_tenant_id" {

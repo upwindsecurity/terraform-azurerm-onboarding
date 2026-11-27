@@ -52,11 +52,11 @@ minutes after the last instance in it is removed, so the resource group delete m
 
 | Name | Version |
 | ---- | ------- |
-| <a name="provider_azuread"></a> [azuread](#provider\_azuread) | 3.9.0 |
-| <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 4.81.0 |
-| <a name="provider_http"></a> [http](#provider\_http) | 3.6.0 |
-| <a name="provider_random"></a> [random](#provider\_random) | 3.9.0 |
-| <a name="provider_time"></a> [time](#provider\_time) | 0.14.0 |
+| <a name="provider_azuread"></a> [azuread](#provider\_azuread) | 3.10.0 |
+| <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 5.15.0 |
+| <a name="provider_http"></a> [http](#provider\_http) | 3.6.3 |
+| <a name="provider_random"></a> [random](#provider\_random) | 3.9.1 |
+| <a name="provider_time"></a> [time](#provider\_time) | 0.14.2 |
 
 ## Modules
 
@@ -162,6 +162,7 @@ No modules.
 | <a name="input_azure_cloudscanner_location"></a> [azure\_cloudscanner\_location](#input\_azure\_cloudscanner\_location) | The region where the org-wide resource group will be deployed. Also the location of the Azure SQL MI DSPM resource group when it is first created (later changes are ignored for that group: its scan instances are created per scanned region regardless). | `string` | `"westus"` | no |
 | <a name="input_azure_custom_role_name_prefix"></a> [azure\_custom\_role\_name\_prefix](#input\_azure\_custom\_role\_name\_prefix) | The prefix used for the name of the Azure role definition. | `string` | `"upwindsecurity"` | no |
 | <a name="input_azure_custom_role_permissions"></a> [azure\_custom\_role\_permissions](#input\_azure\_custom\_role\_permissions) | List of custom permissions that should be granted to the service principal through a custom role. | `list(string)` | <pre>[<br/>  "Microsoft.Web/sites/config/list/Action"<br/>]</pre> | no |
+| <a name="input_azure_environment"></a> [azure\_environment](#input\_azure\_environment) | The Azure cloud the tenant lives in: 'public' (Azure commercial) or 'usgovernment' (Azure Government). Set the azurerm and azuread providers to the same cloud (environment = "usgovernment" on both); this module only uses it for the cloud-specific names it builds itself, such as the Key Vault private DNS zone. | `string` | `"public"` | no |
 | <a name="input_azure_management_group_ids"></a> [azure\_management\_group\_ids](#input\_azure\_management\_group\_ids) | List of management group names (not full resource IDs) to grant read access to. For example, use 'upwindsecurity-sandbox' instead of '/providers/Microsoft.Management/managementGroups/upwindsecurity-sandbox'. Can be combined with subscription include/exclude filters to further refine the scope. | `list(string)` | `[]` | no |
 | <a name="input_azure_orchestrator_subscription_id"></a> [azure\_orchestrator\_subscription\_id](#input\_azure\_orchestrator\_subscription\_id) | The subscription ID where the Upwind components will be deployed. The module will assume deployment permissions in this subscription via a custom role definition. | `string` | n/a | yes |
 | <a name="input_azure_role_definition_wait_time"></a> [azure\_role\_definition\_wait\_time](#input\_azure\_role\_definition\_wait\_time) | The duration of time to wait after Azure role definitions are created to ensure full propagation and prevent timing issues in dependent resources. | `string` | `"10s"` | no |
@@ -199,7 +200,7 @@ No modules.
 | <a name="input_upwind_feature_dspm_enabled"></a> [upwind\_feature\_dspm\_enabled](#input\_upwind\_feature\_dspm\_enabled) | Opt-in control for Upwind DSPM (Data Security Posture Management). When true (default), onboarding grants data-plane blob read (Storage Blob Data Reader / Storage File Data Privileged Reader) and, in SaaS mode, mints the DSPM marker role the CloudScanner feature gate detects. Setting this to false ALSO disables Azure Function scanning: Function apps store their code in an Azure storage account, and reading that code relies on the same Storage Blob Data Reader grant - so turning DSPM off removes function-code visibility too. Coexists with the legacy disable\_function\_scanning: DSPM (and function scanning) is provisioned only when this is true AND disable\_function\_scanning is false. Setting this to false also turns off Azure SQL Managed Instance DSPM (upwind\_feature\_dspm\_azure\_sql\_managed\_instance\_enabled). | `bool` | `true` | no |
 | <a name="input_upwind_integration_endpoint"></a> [upwind\_integration\_endpoint](#input\_upwind\_integration\_endpoint) | The Integration API endpoint. | `string` | `"https://integration.upwind.io"` | no |
 | <a name="input_upwind_organization_id"></a> [upwind\_organization\_id](#input\_upwind\_organization\_id) | The identifier of the Upwind organization to integrate with. | `string` | n/a | yes |
-| <a name="input_upwind_region"></a> [upwind\_region](#input\_upwind\_region) | The region where the Upwind components will be deployed. Must be 'us', 'eu', 'ap', 'au', 'me', or 'pdcXX' (e.g. 'pdc02') | `string` | `"us"` | no |
+| <a name="input_upwind_region"></a> [upwind\_region](#input\_upwind\_region) | The region where the Upwind components will be deployed. Must be 'us', 'eu', 'ap', 'au', 'me', 'fedramp', or 'pdcXX' (e.g. 'pdc02'). 'fedramp' targets the Upwind FedRAMP platform on upwind.us. | `string` | `"us"` | no |
 | <a name="input_use_workload_identity_federation"></a> [use\_workload\_identity\_federation](#input\_use\_workload\_identity\_federation) | Self-hosted (outpost) mode: authenticate via workload identity federation instead of a client secret (UP-3278). When true (the default), the module uses WIF ONLY IF a WIF identity is available - i.e. fetcher\_app\_client\_id or fetcher\_app\_service\_principal\_object\_id is set, which happens when the org has azure-auth-service enabled and the Upwind console has surfaced the Fetcher app. In WIF mode no app registration or client secret is created in this tenant and no credentials are submitted to Upwind; instead the service principal of the org's Upwind-minted WIF app registration (the same Fetcher app the SaaS mode consents) is materialized here and granted the self-hosted role set. AUTO-FALLBACK: if no fetcher\_* input is provided (org WITHOUT azure auth service, or an existing client-secret deployment), the module keeps the legacy client-secret flow instead of failing - so those customers can still onboard. Set false to pin the legacy client-secret flow explicitly regardless of fetcher\_* inputs. Ignored when saas\_enabled is true. | `bool` | `true` | no |
 
 ## Outputs

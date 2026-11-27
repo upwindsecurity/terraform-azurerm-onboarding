@@ -49,7 +49,7 @@ resource "azurerm_key_vault" "orgwide_key_vault" {
 # Create private DNS zone for Key Vault, dns links will be added per cloudscanner deployment
 resource "azurerm_private_dns_zone" "orgwide_keyvault_dns_zone" {
   count               = local.cloudscanner_enabled && (var.key_vault_deny_traffic || var.key_vault_private_network) ? 1 : 0
-  name                = "privatelink.vaultcore.azure.net"
+  name                = var.azure_environment == "usgovernment" ? "privatelink.vaultcore.usgovcloudapi.net" : "privatelink.vaultcore.azure.net"
   resource_group_name = azurerm_resource_group.orgwide_resource_group[0].name
 }
 

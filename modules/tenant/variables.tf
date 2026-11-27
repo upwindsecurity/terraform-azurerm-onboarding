@@ -59,13 +59,24 @@ variable "upwind_integration_endpoint" {
 }
 
 variable "upwind_region" {
-  description = "The region where the Upwind components will be deployed. Must be 'us', 'eu', 'ap', 'au', 'me', or 'pdcXX' (e.g. 'pdc02')"
+  description = "The region where the Upwind components will be deployed. Must be 'us', 'eu', 'ap', 'au', 'me', 'fedramp', or 'pdcXX' (e.g. 'pdc02'). 'fedramp' targets the Upwind FedRAMP platform on upwind.us."
   type        = string
   default     = "us"
 
   validation {
-    condition     = contains(["us", "eu", "me", "ap", "au"], var.upwind_region) || can(regex("^pdc[0-9]{2}$", var.upwind_region))
-    error_message = "upwind_region must be one of 'us', 'eu', 'ap', 'au', 'me', or 'pdcXX' (where XX is two digits, e.g. 'pdc02')."
+    condition     = contains(["us", "eu", "me", "ap", "au", "fedramp"], var.upwind_region) || can(regex("^pdc[0-9]{2}$", var.upwind_region))
+    error_message = "upwind_region must be one of 'us', 'eu', 'ap', 'au', 'me', 'fedramp', or 'pdcXX' (where XX is two digits, e.g. 'pdc02')."
+  }
+}
+
+variable "azure_environment" {
+  description = "The Azure cloud the tenant lives in: 'public' (Azure commercial) or 'usgovernment' (Azure Government). Set the azurerm and azuread providers to the same cloud (environment = \"usgovernment\" on both); this module only uses it for the cloud-specific names it builds itself, such as the Key Vault private DNS zone."
+  type        = string
+  default     = "public"
+
+  validation {
+    condition     = contains(["public", "usgovernment"], var.azure_environment)
+    error_message = "azure_environment must be 'public' or 'usgovernment'."
   }
 }
 
