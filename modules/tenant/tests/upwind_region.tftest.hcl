@@ -207,3 +207,59 @@ run "pdc07_region_inserted_into_endpoints" {
     error_message = "unexpected integration URL"
   }
 }
+
+run "fedramp_uses_upwind_us_hosts" {
+  command = plan
+  variables { upwind_region = "fedramp" }
+
+  assert {
+    condition     = data.http.upwind_get_access_token_request[0].url == "https://oauth.upwind.us/oauth/token"
+    error_message = "unexpected auth URL"
+  }
+  assert {
+    condition     = strcontains(data.http.upwind_get_access_token_request[0].request_body, "audience=https://agent.upwind.us&")
+    error_message = "unexpected audience"
+  }
+  assert {
+    condition     = data.http.upwind_get_organizational_credentials_request[0].url == "https://agent.upwind.us/v1/organizations/org_test/organizational-credentials/azure"
+    error_message = "unexpected integration URL"
+  }
+  assert {
+    condition     = strcontains(output.upwind_next_step, "https://console.upwind.us")
+    error_message = "unexpected console URL"
+  }
+}
+
+run "fedramp_keeps_explicit_endpoints_for_govdev" {
+  command = plan
+  variables {
+    upwind_region               = "fedramp"
+    upwind_auth_endpoint        = "https://oauth.govdev.upwind.dev"
+    upwind_integration_endpoint = "https://agent.govdev.upwind.dev"
+  }
+
+  assert {
+    condition     = data.http.upwind_get_access_token_request[0].url == "https://oauth.govdev.upwind.dev/oauth/token"
+    error_message = "unexpected auth URL"
+  }
+  assert {
+    condition     = data.http.upwind_get_organizational_credentials_request[0].url == "https://agent.govdev.upwind.dev/v1/organizations/org_test/organizational-credentials/azure"
+    error_message = "unexpected integration URL"
+  }
+}
+
+run "commercial_console_url_unchanged" {
+  command = plan
+  variables { upwind_region = "eu" }
+
+  assert {
+    condition     = strcontains(output.upwind_next_step, "https://console.upwind.io")
+    error_message = "unexpected console URL"
+  }
+}
+
+run "rejects_unknown_azure_environment" {
+  command = plan
+  variables { azure_environment = "china" }
+  expect_failures = [var.azure_environment]
+}

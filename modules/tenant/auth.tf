@@ -7,8 +7,23 @@ locals {
       null
     )
   )
-  upwind_auth_endpoint        = var.upwind_region == "us" ? var.upwind_auth_endpoint : replace(var.upwind_auth_endpoint, ".upwind.", format(".%s.upwind.", var.upwind_region))
-  upwind_integration_endpoint = var.upwind_region == "us" ? var.upwind_integration_endpoint : replace(var.upwind_integration_endpoint, ".upwind.", format(".%s.upwind.", var.upwind_region))
+
+  # FedRAMP is hosted on upwind.us, where the token endpoint is oauth. and the
+  # API is agent. (there is no auth. or integration. host). An endpoint the
+  # caller set explicitly wins, so GovDev can be targeted with
+  # https://oauth.govdev.upwind.dev and https://agent.govdev.upwind.dev.
+  upwind_fedramp = var.upwind_region == "fedramp"
+  upwind_auth_endpoint = (
+    local.upwind_fedramp ? (var.upwind_auth_endpoint == "https://auth.upwind.io" ? "https://oauth.upwind.us" : var.upwind_auth_endpoint) :
+    var.upwind_region == "us" ? var.upwind_auth_endpoint :
+    replace(var.upwind_auth_endpoint, ".upwind.", format(".%s.upwind.", var.upwind_region))
+  )
+  upwind_integration_endpoint = (
+    local.upwind_fedramp ? (var.upwind_integration_endpoint == "https://integration.upwind.io" ? "https://agent.upwind.us" : var.upwind_integration_endpoint) :
+    var.upwind_region == "us" ? var.upwind_integration_endpoint :
+    replace(var.upwind_integration_endpoint, ".upwind.", format(".%s.upwind.", var.upwind_region))
+  )
+  upwind_console_url = local.upwind_fedramp ? "https://console.upwind.us" : "https://console.upwind.io"
 }
 
 # Skipped in SaaS and WIF modes: both are secretless and make no Upwind API
